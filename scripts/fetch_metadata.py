@@ -6,6 +6,8 @@ import os.path
 import json
 import logging
 
+logging.getLogger().setLevel(logging.INFO)
+
 parser = argparse.ArgumentParser()
 parser.add_argument("-i","--input", help="input video path", required=True)
 parser.add_argument("-o","--output", help='output file path')
@@ -52,7 +54,7 @@ metadata = {
 
 print(metadata)
 
-logging.debug("writing metadata to file %s",metadata_filename)
+logging.info("writing metadata to file %s",metadata_filename)
 
 with open(metadata_filename, 'w') as outfile:
     #print metadata to file

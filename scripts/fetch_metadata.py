@@ -40,7 +40,7 @@ duration = 0
 if fps != 0:
     duration = frames_count/fps
 else:
-    logging.warning("file %s has zero fps, or empty file"%file_path)
+    logging.warning("file %s has zero fps, or empty file",file_path)
 
 metadata = {
     "height":int(height),

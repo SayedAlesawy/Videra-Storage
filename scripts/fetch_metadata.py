@@ -1,17 +1,23 @@
 # A script for fetching metadata from video file
 
 import cv2
-import sys
+import argparse
 import os.path
 import json
 import logging
 
-if len(sys.argv) < 2:
-    raise Exception("File path must be passed as an argument")
+parser = argparse.ArgumentParser()
+parser.add_argument("-i","--input", help="input video path", required=True)
+parser.add_argument("-o","--output", help='output file path')
+args = parser.parse_args()
 
-file_path = sys.argv[1]
+file_path = args.input
 video_name = os.path.splitext(file_path)[0] #remove extension from file
-metadata_filename = "{0}_metadata.txt".format(video_name)
+
+if args.output:
+    metadata_filename = args.output
+else:
+    metadata_filename = "{0}_metadata.txt".format(video_name)
 
 logging.debug("file path: %s", file_path)
 logging.debug("file name: %s", video_name)

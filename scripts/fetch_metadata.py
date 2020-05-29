@@ -52,8 +52,7 @@ metadata = {
     "duration":duration
 }
 
-print(metadata)
-
+logging.info(metadata)
 logging.info("writing metadata to file %s",metadata_filename)
 
 with open(metadata_filename, 'w') as outfile:

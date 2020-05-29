@@ -19,14 +19,14 @@ video_name = os.path.splitext(file_path)[0] #remove extension from file
 if args.output:
     metadata_filename = args.output
 else:
-    metadata_filename = "{0}_metadata.txt".format(video_name)
+    metadata_filename = f"{video_name}_metadata.txt"
 
 logging.debug("file path: %s", file_path)
 logging.debug("file name: %s", video_name)
 
 
 if not os.path.exists(file_path) or not os.path.isfile(file_path): #checks for existance of file
-    raise Exception("can't read file {0}".format(file_path))
+    raise Exception(f"can't read file {file_path}")
 
 video = cv2.VideoCapture(file_path)
 

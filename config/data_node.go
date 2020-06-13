@@ -10,6 +10,7 @@ type DataNodeconfig struct {
 	NameNodeIP                   string //IP of the current name node
 	InternalRequestsPort         string //The internal requests ports
 	NameNodeInternalRequestsPort string //The internal requests port of the name node
+	Port                         string //Port to listen to requests
 }
 
 // dataNodeConfigOnce Used to garauntee thread safety for singleton instances
@@ -26,6 +27,7 @@ func (manager *ConfigurationManager) DataNodeConfig() *DataNodeconfig {
 			NameNodeIP:                   envString("NAME_NODE_IP", "127.0.0.1"),
 			InternalRequestsPort:         envString("INTERNAL_REQ_PORT", "6000"),
 			NameNodeInternalRequestsPort: envString("NAME_NODE_INTERNAL_REQ_PORT", "7000"),
+			Port:                         envString("PORT", "8080"),
 		}
 
 		dataNodeConfigInstance = &dataNodeConfig

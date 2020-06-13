@@ -7,4 +7,7 @@ import (
 func main() {
 	dataNode := datanode.NodeInstance()
 	dataNode.JoinCluster()
+
+	um := datanode.UploadManagerInstance()
+	um.Start()
 }

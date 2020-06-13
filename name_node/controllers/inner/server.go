@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
+	"github.com/SayedAlesawy/Videra-Storage/config"
 	"github.com/SayedAlesawy/Videra-Storage/ndpb"
 	grpc "google.golang.org/grpc"
 )
@@ -29,11 +30,13 @@ var serverInstance *Server
 
 // ServerInstance A function to return a singleton server instance
 func ServerInstance() *Server {
+	nameNodeConfig := config.ConfigurationManagerInstance("").NameNodeConfig()
+
 	serverOnce.Do(func() {
 		server := Server{
-			Network: "tcp",
-			IP:      "127.0.0.1",
-			Port:    "5555",
+			IP:      nameNodeConfig.IP,
+			Port:    nameNodeConfig.InternalRequestsPort,
+			Network: nameNodeConfig.NetowrkProtocol,
 		}
 
 		serverInstance = &server

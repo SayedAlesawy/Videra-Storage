@@ -1,8 +1,7 @@
 package main
 
-import "log"
+import "github.com/SayedAlesawy/Videra-Storage/name_node/controllers/inner"
 
 func main() {
-	log.Println("Hello name node here")
-	//Logic to build the name node binary
+	inner.ServerInstance().Start()
 }

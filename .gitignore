@@ -4,12 +4,20 @@
 *.dll
 *.so
 *.dylib
+*venv
 
 # Test binary, built with `go test -c`
 *.test
+**__pycache*
+**.vscode*
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+*.bin
+*.mp4
+
+# Ignore log files
+*.log

@@ -1,8 +1,10 @@
 package main
 
-import "log"
+import (
+	datanode "github.com/SayedAlesawy/Videra-Storage/data_node"
+)
 
 func main() {
-	log.Println("Hello data node here")
-	//Logic to build the data node binary
+	dataNode := datanode.NodeInstance()
+	dataNode.JoinCluster()
 }

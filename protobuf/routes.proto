@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package protobuf;
+
+service InternalRoutes {
+  rpc JoinCluster(JoinClusterRequest) returns (JoinClusterResponse);
+}
+
+message JoinClusterRequest {
+  string IP = 1;
+  string Port = 2;
+}
+
+message JoinClusterResponse {
+  enum JoinStatus {
+    SUCCESS = 0;
+    FAILURE = 1;
+  }
+
+  JoinStatus Status = 1;
+}

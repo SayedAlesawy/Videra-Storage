@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package protobuf;
+package ndpb;
 
-service InternalRoutes {
+service NameNodeInternalRoutes {
   rpc JoinCluster(JoinClusterRequest) returns (JoinClusterResponse);
 }
 

@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
-	"github.com/SayedAlesawy/Videra-Storage/protobuf"
+	"github.com/SayedAlesawy/Videra-Storage/ndpb"
 	grpc "google.golang.org/grpc"
 )
 
@@ -50,7 +50,7 @@ func (server *Server) Start() {
 
 	//Start gRPC server
 	grpcServer := grpc.NewServer()
-	protobuf.RegisterInternalRoutesServer(grpcServer, server)
+	ndpb.RegisterNameNodeInternalRoutesServer(grpcServer, server)
 
 	//Server gRPC routes on the obtained listener
 	log.Println(logPrefix, fmt.Sprintf("Listening on %s", server.getAddress()))

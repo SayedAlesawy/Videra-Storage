@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
-	"github.com/SayedAlesawy/Videra-Storage/protobuf"
+	"github.com/SayedAlesawy/Videra-Storage/ndpb"
 	"google.golang.org/grpc"
 )
 
@@ -17,10 +17,10 @@ func (dataNode *DataNode) JoinCluster() {
 	errors.HandleError(err, fmt.Sprintf("%s Unable to connect to name node", logPrefix), true)
 	defer conn.Close()
 
-	client := protobuf.NewInternalRoutesClient(conn)
+	client := ndpb.NewNameNodeInternalRoutesClient(conn)
 
 	log.Println(logPrefix, "Sending join cluster request to name node")
-	req := protobuf.JoinClusterRequest{
+	req := ndpb.JoinClusterRequest{
 		IP:   dataNode.IP,
 		Port: dataNode.InternalPort,
 	}

@@ -11,6 +11,7 @@ type DataNodeconfig struct {
 	InternalRequestsPort         string //The internal requests ports
 	NameNodeInternalRequestsPort string //The internal requests port of the name node
 	Port                         string //Port to listen to requests
+	NetowrkProtocol              string //Network protocol used by the data node
 	InternalReqTimeout           int    //Timeout for internal requests
 }
 
@@ -29,6 +30,7 @@ func (manager *ConfigurationManager) DataNodeConfig() *DataNodeconfig {
 			InternalRequestsPort:         envString("INTERNAL_REQ_PORT", "6000"),
 			NameNodeInternalRequestsPort: envString("NAME_NODE_INTERNAL_REQ_PORT", "7000"),
 			Port:                         envString("PORT", "8080"),
+			NetowrkProtocol:              envString("NET_PROTOCOL", "tcp"),
 			InternalReqTimeout:           int(envInt("INTERNAL_REQ_TIMEOUT", "5")),
 		}
 

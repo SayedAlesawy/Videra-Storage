@@ -8,7 +8,7 @@ import (
 
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
 	"github.com/SayedAlesawy/Videra-Storage/config"
-	"github.com/SayedAlesawy/Videra-Storage/ndpb"
+	"github.com/SayedAlesawy/Videra-Storage/name_node/nnpb"
 	grpc "google.golang.org/grpc"
 )
 
@@ -53,7 +53,7 @@ func (server *Server) Start() {
 
 	//Start gRPC server
 	grpcServer := grpc.NewServer()
-	ndpb.RegisterNameNodeInternalRoutesServer(grpcServer, server)
+	nnpb.RegisterNameNodeInternalRoutesServer(grpcServer, server)
 
 	//Server gRPC routes on the obtained listener
 	log.Println(logPrefix, fmt.Sprintf("Listening on %s", server.getAddress()))

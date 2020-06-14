@@ -6,7 +6,7 @@ import (
 	"log"
 
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
-	"github.com/SayedAlesawy/Videra-Storage/ndpb"
+	"github.com/SayedAlesawy/Videra-Storage/name_node/nnpb"
 	"google.golang.org/grpc"
 )
 
@@ -16,10 +16,10 @@ func (dataNode *DataNode) JoinCluster() {
 	errors.HandleError(err, fmt.Sprintf("%s Unable to connect to name node", logPrefix), true)
 	defer conn.Close()
 
-	client := ndpb.NewNameNodeInternalRoutesClient(conn)
+	client := nnpb.NewNameNodeInternalRoutesClient(conn)
 
 	log.Println(logPrefix, "Sending join cluster request to name node")
-	req := ndpb.JoinClusterRequest{
+	req := nnpb.JoinClusterRequest{
 		IP:   dataNode.IP,
 		Port: dataNode.InternalPort,
 	}

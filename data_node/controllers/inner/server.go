@@ -56,7 +56,7 @@ func (server *Server) Start() {
 	dnpb.RegisterDataNodeInternalRoutesServer(grpcServer, server)
 
 	//Server gRPC routes on the obtained listener
-	log.Println(logPrefix, fmt.Sprintf("Listening on %s", server.getAddress()))
+	log.Println(logPrefix, fmt.Sprintf("Listening for internal requests on %s", server.getAddress()))
 
 	grpcServer.Serve(listener)
 }

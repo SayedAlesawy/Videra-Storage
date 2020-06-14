@@ -56,7 +56,7 @@ func (um *UploadManager) handleUpload(w http.ResponseWriter, r *http.Request, _ 
 	case "INIT":
 		um.handleInitialUpload(w, r)
 	case "APPEND":
-
+		um.handleAppendUpload(w, r)
 	default:
 		log.Println(um.logPrefix, r.RemoteAddr, fmt.Sprintf("request-type header value undefined - %s", reqType))
 		handleRequestError(w, http.StatusBadRequest, "Request-Type header value is not undefined")
@@ -104,6 +104,22 @@ func (um *UploadManager) handleInitialUpload(w http.ResponseWriter, r *http.Requ
 
 	w.WriteHeader(http.StatusCreated)
 	w.Header().Set("ID", id)
+	w.Header().Set("Max-Request-Size", string(um.maxChunkSize))
+}
+
+// handleAppendUpload is a function responsible for handling the first upload request
+func (um *UploadManager) handleAppendUpload(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, um.maxChunkSize)
+	log.Println(um.logPrefix, r.RemoteAddr, "Received APPEND request")
+
+	expectedHeaders := []string{"Content-Length", "Filename"}
+	err := um.validateUploadHeaders(&r.Header, expectedHeaders...)
+
+	if err != nil {
+		log.Println(um.logPrefix, r.RemoteAddr, err)
+		handleRequestError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 }
 
 // validateUploadHeaders is a function to check existance of parameters inside header
@@ -136,4 +152,12 @@ func (um *UploadManager) addNewFile(id string, filepath string, filename string,
 	}
 
 	return nil
+}
+
+func (um *UploadManager) validateIDExistance(id string) bool {
+	um.fileBaseMutex.RLock()
+	defer um.fileBaseMutex.RUnlock()
+
+	_, present := um.fileBase[id]
+	return present
 }

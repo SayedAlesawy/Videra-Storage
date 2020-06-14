@@ -24,7 +24,8 @@ type NameNodeData struct {
 type UploadManager struct {
 	fileBase      map[string]FileInfo // Holds information about files available in data node
 	fileBaseMutex sync.RWMutex        // For safe concurrent access to filebase
-	logPrefix     string              // log prefix for logging hierarchy
+	maxChunkSize  int64               // Maximum acceptable size of received chunk
+	logPrefix     string              // Log prefix for logging hierarchy
 }
 
 // FileInfo represents file information on disk

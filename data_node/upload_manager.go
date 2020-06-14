@@ -2,14 +2,17 @@ package datanode
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"path"
 	"strconv"
 	"sync"
 
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
 	"github.com/SayedAlesawy/Videra-Storage/config"
+	"github.com/juju/fslock"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -112,7 +115,7 @@ func (um *UploadManager) handleAppendUpload(w http.ResponseWriter, r *http.Reque
 	r.Body = http.MaxBytesReader(w, r.Body, um.maxChunkSize)
 	log.Println(um.logPrefix, r.RemoteAddr, "Received APPEND request")
 
-	expectedHeaders := []string{"Content-Length", "Filename"}
+	expectedHeaders := []string{"Content-Length", "Filename", "Offset", "ID"}
 	err := um.validateUploadHeaders(&r.Header, expectedHeaders...)
 
 	if err != nil {
@@ -120,6 +123,59 @@ func (um *UploadManager) handleAppendUpload(w http.ResponseWriter, r *http.Reque
 		handleRequestError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	id := r.Header.Get("ID")
+	if !um.validateIDExistance(id) {
+		log.Println(um.logPrefix, r.RemoteAddr, "ID not found")
+		handleRequestError(w, http.StatusNotFound, "ID not found")
+		return
+	}
+
+	chunkSize, err := strconv.ParseInt(r.Header.Get("Content-Length"), 10, 64)
+	if errors.IsError(err) || chunkSize <= 0 {
+		log.Println(um.logPrefix, r.RemoteAddr, "Invalid chunk size", r.Header.Get("Content-Length"))
+		handleRequestError(w, http.StatusBadRequest, "Invalid chunk size")
+		return
+	}
+
+	offset, err := strconv.ParseInt(r.Header.Get("Offset"), 10, 64)
+	if errors.IsError(err) || !um.validateFileOffset(id, offset, chunkSize) {
+		log.Println(um.logPrefix, r.RemoteAddr, "Invalid file offset", r.Header.Get("Offset"))
+		w.Header().Set("Offset", string(um.fileBase[id].Offset))
+		handleRequestError(w, http.StatusBadRequest, "Invalid offset")
+		return
+	}
+
+	file := um.fileBase[id]
+	filePath := path.Join(file.Path, file.Name)
+
+	lock := fslock.New(filePath)
+	lock.Lock()
+	defer lock.Unlock()
+
+	fh, err := os.OpenFile(filePath, os.O_WRONLY, 0644)
+	defer fh.Close()
+
+	if errors.IsError(err) {
+		log.Println(um.logPrefix, r.RemoteAddr, err)
+		handleRequestError(w, http.StatusBadRequest, "Internal server error")
+		return
+	}
+
+	body, err := ioutil.ReadAll(r.Body)
+	if errors.IsError(err) {
+		log.Println(um.logPrefix, r.RemoteAddr, err)
+		handleRequestError(w, http.StatusBadRequest, "Internal server error")
+		return
+	}
+	fh.WriteAt(body, offset)
+
+	um.fileBaseMutex.Lock()
+	defer um.fileBaseMutex.Unlock()
+
+	file.Offset += chunkSize
+	um.fileBase[id] = file
+
 }
 
 // validateUploadHeaders is a function to check existance of parameters inside header
@@ -160,4 +216,19 @@ func (um *UploadManager) validateIDExistance(id string) bool {
 
 	_, present := um.fileBase[id]
 	return present
+}
+
+func (um *UploadManager) validateFileOffset(id string, offset int64, chunkSize int64) bool {
+	um.fileBaseMutex.RLock()
+	defer um.fileBaseMutex.RUnlock()
+
+	if offset < 0 {
+		return false
+	}
+
+	file := um.fileBase[id]
+	if file.Offset == offset && !file.isCompleted && file.Offset+chunkSize <= file.Size {
+		return true
+	}
+	return false
 }

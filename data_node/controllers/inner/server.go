@@ -8,7 +8,7 @@ import (
 
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
 	"github.com/SayedAlesawy/Videra-Storage/config"
-	"github.com/SayedAlesawy/Videra-Storage/name_node/nnpb"
+	"github.com/SayedAlesawy/Videra-Storage/data_node/dnpb"
 	grpc "google.golang.org/grpc"
 )
 
@@ -30,13 +30,13 @@ var serverInstance *Server
 
 // ServerInstance A function to return a singleton server instance
 func ServerInstance() *Server {
-	nameNodeConfig := config.ConfigurationManagerInstance("").NameNodeConfig()
+	dataNodeConfig := config.ConfigurationManagerInstance("").DataNodeConfig()
 
 	serverOnce.Do(func() {
 		server := Server{
-			IP:      nameNodeConfig.IP,
-			Port:    nameNodeConfig.InternalRequestsPort,
-			Network: nameNodeConfig.NetworkProtocol,
+			IP:      dataNodeConfig.IP,
+			Port:    dataNodeConfig.InternalRequestsPort,
+			Network: dataNodeConfig.NetworkProtocol,
 		}
 
 		serverInstance = &server
@@ -53,7 +53,7 @@ func (server *Server) Start() {
 
 	//Start gRPC server
 	grpcServer := grpc.NewServer()
-	nnpb.RegisterNameNodeInternalRoutesServer(grpcServer, server)
+	dnpb.RegisterDataNodeInternalRoutesServer(grpcServer, server)
 
 	//Server gRPC routes on the obtained listener
 	log.Println(logPrefix, fmt.Sprintf("Listening for internal requests on %s", server.getAddress()))

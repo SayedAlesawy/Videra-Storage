@@ -1,8 +1,8 @@
 package datanode
 
 import (
-	"fmt"
 	"sync"
+	"time"
 
 	"github.com/SayedAlesawy/Videra-Storage/config"
 )
@@ -22,8 +22,9 @@ func NodeInstance() *DataNode {
 
 	dataNodeOnce.Do(func() {
 		dataNode := DataNode{
-			IP:           dataNodeConfig.IP,
-			InternalPort: dataNodeConfig.InternalRequestsPort,
+			IP:                dataNodeConfig.IP,
+			InternalPort:      dataNodeConfig.InternalRequestsPort,
+			InteralReqTimeout: time.Duration(dataNodeConfig.InternalReqTimeout) * time.Second,
 			NameNode: NameNodeData{
 				IP:   dataNodeConfig.NameNodeIP,
 				Port: dataNodeConfig.NameNodeInternalRequestsPort,
@@ -34,9 +35,4 @@ func NodeInstance() *DataNode {
 	})
 
 	return dataNodeInstance
-}
-
-// getNameNodeAddress A function to get the name node address
-func (dataNode *DataNode) getNameNodeAddress() string {
-	return fmt.Sprintf("%s:%s", dataNode.NameNode.IP, dataNode.NameNode.Port)
 }

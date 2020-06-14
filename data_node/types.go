@@ -1,12 +1,16 @@
 package datanode
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 //DataNode Represents a data storage node in the system
 type DataNode struct {
-	IP           string       //IP of the data node host
-	InternalPort string       //Port on which all internal comm is done
-	NameNode     NameNodeData //Houses the needed info about the current name node
+	IP                string        //IP of the data node host
+	InternalPort      string        //Port on which all internal comm is done
+	InteralReqTimeout time.Duration //Timeout for internal requests
+	NameNode          NameNodeData  //Houses the needed info about the current name node
 }
 
 //NameNodeData Houses the needed info about the name node

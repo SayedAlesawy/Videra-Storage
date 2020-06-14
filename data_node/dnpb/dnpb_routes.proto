@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package dnpb;
+
+service DataNodeInternalRoutes {
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+message HealthCheckRequest {} //Empty
+
+message HealthCheckResponse {
+  enum NodeStatus {
+    HEALTHY   = 0;
+    UNHEALTHY = 1;
+  }
+
+  NodeStatus Status = 1;
+}

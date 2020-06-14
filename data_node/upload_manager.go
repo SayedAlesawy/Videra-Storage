@@ -41,7 +41,10 @@ func (um *UploadManager) Start() {
 	router := httprouter.New()
 	router.POST("/upload", um.handleUpload)
 
-	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%s", dataNodeConfig.IP, dataNodeConfig.Port), router))
+	address := fmt.Sprintf("%s:%s", dataNodeConfig.IP, dataNodeConfig.Port)
+
+	log.Println(um.logPrefix, fmt.Sprintf("Listening for external requests on %s", address))
+	log.Fatal(http.ListenAndServe(address, router))
 }
 
 // HandleUpload is upload endpoint handler

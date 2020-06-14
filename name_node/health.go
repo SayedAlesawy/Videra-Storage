@@ -13,8 +13,6 @@ import (
 
 // PingDataNodes A function to ping all currently conneced data nodes for health checking
 func (nameNode *NameNode) PingDataNodes() {
-	time.Sleep(10 * time.Second)
-
 	for range time.Tick(nameNode.HealthCheckInterval) {
 		for _, dataNode := range nameNode.DataNodes {
 			address := nameNode.getNameNodeAddress(dataNode)

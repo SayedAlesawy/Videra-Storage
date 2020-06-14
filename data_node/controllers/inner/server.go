@@ -36,7 +36,7 @@ func ServerInstance() *Server {
 		server := Server{
 			IP:      dataNodeConfig.IP,
 			Port:    dataNodeConfig.InternalRequestsPort,
-			Network: dataNodeConfig.NetowrkProtocol,
+			Network: dataNodeConfig.NetworkProtocol,
 		}
 
 		serverInstance = &server

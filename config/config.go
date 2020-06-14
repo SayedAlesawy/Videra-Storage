@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"strconv"
 	"sync"
@@ -53,6 +54,8 @@ func envString(key, defaultValue string) string {
 	if exists {
 		return value
 	}
+
+	log.Println(fmt.Sprintf("%s Value for env var: %s is not found, fallback to default value: %s", logPrefix, key, defaultValue))
 
 	return defaultValue
 }

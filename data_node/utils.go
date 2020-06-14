@@ -17,6 +17,7 @@ func createFileDirectory(dirPath string, perm os.FileMode) error {
 	return err
 }
 
+// createFile A function to create a file given path
 func createFile(filepath string) error {
 	file, err := os.Create(filepath)
 
@@ -36,7 +37,13 @@ func generateRandomString(n int) string {
 	return fmt.Sprintf("%x", b)
 }
 
+// handleRequestError A function to handle http request failure
 func handleRequestError(w http.ResponseWriter, statusCode int, message string) {
 	w.WriteHeader(statusCode)
 	w.Write([]byte(message))
+}
+
+// getNameNodeAddress A function to get the name node address
+func (dataNode *DataNode) getNameNodeAddress() string {
+	return fmt.Sprintf("%s:%s", dataNode.NameNode.IP, dataNode.NameNode.Port)
 }

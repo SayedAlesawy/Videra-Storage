@@ -61,6 +61,7 @@ func (server *Server) Start() {
 	grpcServer.Serve(listener)
 }
 
+// getAddress A function to get the address on which the internal controller listens
 func (server *Server) getAddress() string {
 	return fmt.Sprintf("%s:%s", server.IP, server.Port)
 }

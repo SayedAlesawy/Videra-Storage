@@ -22,9 +22,11 @@ func NodeInstance() *DataNode {
 
 	dataNodeOnce.Do(func() {
 		dataNode := DataNode{
-			IP:                dataNodeConfig.IP,
-			InternalPort:      dataNodeConfig.InternalRequestsPort,
-			InteralReqTimeout: time.Duration(dataNodeConfig.InternalReqTimeout) * time.Second,
+			IP:                    dataNodeConfig.IP,
+			ID:                    dataNodeConfig.ID,
+			InternalPort:          dataNodeConfig.InternalRequestsPort,
+			InteralReqTimeout:     time.Duration(dataNodeConfig.InternalReqTimeout) * time.Second,
+			RejoinClusterInterval: time.Duration(dataNodeConfig.RejoinClusterInterval) * time.Second,
 			NameNode: NameNodeData{
 				IP:   dataNodeConfig.NameNodeIP,
 				Port: dataNodeConfig.NameNodeInternalRequestsPort,

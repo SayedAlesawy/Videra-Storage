@@ -7,6 +7,7 @@ import (
 // DataNodeconfig Houses the configurations of the data node
 type DataNodeconfig struct {
 	IP                           string //Name node IP
+	ID                           string //Unique ID for the data node
 	NameNodeIP                   string //IP of the current name node
 	InternalRequestsPort         string //The internal requests ports
 	NameNodeInternalRequestsPort string //The internal requests port of the name node
@@ -14,6 +15,7 @@ type DataNodeconfig struct {
 	NetworkProtocol              string //Network protocol used by the data node
 	InternalReqTimeout           int    //Timeout for internal requests
 	MaxRequestSize               int64  //Maximum acceptable size of body size
+	RejoinClusterInterval        int    //Freqency of retrying the join cluster request
 }
 
 // dataNodeConfigOnce Used to garauntee thread safety for singleton instances
@@ -28,6 +30,7 @@ func (manager *ConfigurationManager) DataNodeConfig() *DataNodeconfig {
 
 		dataNodeConfig := DataNodeconfig{
 			IP:                           envString("IP", "127.0.0.1"),
+			ID:                           envString("ID", "1"),
 			NameNodeIP:                   envString("NAME_NODE_IP", "127.0.0.1"),
 			InternalRequestsPort:         envString("INTERNAL_REQ_PORT", "6000"),
 			NameNodeInternalRequestsPort: envString("NAME_NODE_INTERNAL_REQ_PORT", "7000"),
@@ -35,6 +38,7 @@ func (manager *ConfigurationManager) DataNodeConfig() *DataNodeconfig {
 			NetworkProtocol:              envString("NET_PROTOCOL", "tcp"),
 			InternalReqTimeout:           int(envInt("INTERNAL_REQ_TIMEOUT", "5")),
 			MaxRequestSize:               envInt("MAX_REQUEST_SIZE", "4194304"),
+			RejoinClusterInterval:        int(envInt("REJOIN_CLUSTER_INTERVAL", "2")),
 		}
 
 		dataNodeConfigInstance = &dataNodeConfig

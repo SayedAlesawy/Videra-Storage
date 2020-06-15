@@ -40,6 +40,31 @@ func (nameNode *NameNode) RemoveDataNodeData(dataNodeData DataNodeData) bool {
 	return true
 }
 
+// GetAllDataNodeData A function to get all data node data from active hash
+func (nameNode *NameNode) GetAllDataNodeData() []DataNodeData {
+	var dataNodes []DataNodeData
+
+	nodes, err := nameNode.getAllFromHash(nameNode.dataNodesTrackingKey)
+	if errors.IsError(err) {
+		log.Println(logPrefix, "Unable to fetch data node info from redis")
+
+		return dataNodes
+	}
+
+	for _, node := range nodes {
+		decodedNode, err := nameNode.decodeDataNodeData(node)
+		if errors.IsError(err) {
+			log.Println(logPrefix, "Unable to decode data node data", node)
+
+			continue
+		}
+
+		dataNodes = append(dataNodes, decodedNode)
+	}
+
+	return dataNodes
+}
+
 // insertIntoHash A function to insert a new entry in a redis hash
 func (nameNode *NameNode) insertIntoHash(key string, field string, value string) error {
 	return nameNode.cache.HSet(key, field, value).Err()
@@ -48,4 +73,9 @@ func (nameNode *NameNode) insertIntoHash(key string, field string, value string)
 // deleteFromHash A function to delete a certain field in redis hash
 func (nameNode *NameNode) deleteFromHash(key string, field ...string) error {
 	return nameNode.cache.HDel(key, field...).Err()
+}
+
+// getAllFromHash A function to get all fields from a redis hash
+func (nameNode *NameNode) getAllFromHash(key string) (map[string]string, error) {
+	return nameNode.cache.HGetAll(key).Result()
 }

@@ -14,7 +14,7 @@ import (
 // PingDataNodes A function to ping all currently conneced data nodes for health checking
 func (nameNode *NameNode) PingDataNodes() {
 	for range time.Tick(nameNode.HealthCheckInterval) {
-		for _, dataNode := range nameNode.DataNodes {
+		for _, dataNode := range nameNode.GetAllDataNodeData() {
 			address := nameNode.getNameNodeAddress(dataNode)
 
 			conn, err := grpc.Dial(address, grpc.WithInsecure())

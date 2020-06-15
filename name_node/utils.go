@@ -33,7 +33,7 @@ func (dataNodeData *DataNodeData) encode() (string, error) {
 }
 
 // decodeDataNodeData Decodes the stringified data node data
-func decodeDataNodeData(encodedData string) (DataNodeData, error) {
+func (nameNode *NameNode) decodeDataNodeData(encodedData string) (DataNodeData, error) {
 	var dataNodeData DataNodeData
 
 	err := json.Unmarshal([]byte(encodedData), &dataNodeData)

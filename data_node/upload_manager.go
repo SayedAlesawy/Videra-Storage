@@ -176,6 +176,13 @@ func (um *UploadManager) handleAppendUpload(w http.ResponseWriter, r *http.Reque
 	defer um.fileBaseMutex.Unlock()
 
 	file.Offset += chunkSize
+	if file.Offset == file.Size {
+		file.isCompleted = true
+
+		// Name node should be notified here
+
+		w.WriteHeader(http.StatusAccepted)
+	}
 	um.fileBase[id] = file
 
 }

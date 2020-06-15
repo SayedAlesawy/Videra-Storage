@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
 	"github.com/SayedAlesawy/Videra-Storage/data_node/dnpb"
+	"github.com/SayedAlesawy/Videra-Storage/utils/errors"
 	"google.golang.org/grpc"
 )
 

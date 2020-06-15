@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
 	"github.com/SayedAlesawy/Videra-Storage/config"
+	"github.com/SayedAlesawy/Videra-Storage/utils/errors"
 	"github.com/julienschmidt/httprouter"
 )
 

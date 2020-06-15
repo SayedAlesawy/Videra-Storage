@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
 	"github.com/SayedAlesawy/Videra-Storage/name_node/nnpb"
+	"github.com/SayedAlesawy/Videra-Storage/utils/errors"
 	"google.golang.org/grpc"
 )
 

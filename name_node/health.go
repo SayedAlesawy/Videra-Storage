@@ -32,8 +32,9 @@ func (nameNode *NameNode) PingDataNodes() {
 
 			healthCheckResp, err := client.HealthCheck(ctx, &req)
 			if errors.IsError(err) {
-				//TODO: Remove it from list of tracked nodes
 				log.Println(fmt.Sprintf("%s Data node on address: %s is OFFLINE", logPrefix, address))
+				nameNode.RemoveDataNodeData(dataNode)
+
 				continue
 			}
 

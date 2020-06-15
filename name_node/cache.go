@@ -28,16 +28,12 @@ func (nameNode *NameNode) InsertDataNodeData(dataNodeData DataNodeData) bool {
 }
 
 // RemoveDataNodeData A function to remove data node data from active nodes hash
-func (nameNode *NameNode) RemoveDataNodeData(dataNodeData DataNodeData) bool {
+func (nameNode *NameNode) RemoveDataNodeData(dataNodeData DataNodeData) {
 	err := nameNode.deleteFromHash(nameNode.dataNodesTrackingKey, dataNodeData.ID)
 	if errors.IsError(err) {
 		log.Println(logPrefix, fmt.Sprintf("Unable to remove from redis hash: %s for data node: %s",
 			nameNode.dataNodesTrackingKey, dataNodeData.ID))
-
-		return false
 	}
-
-	return true
 }
 
 // GetAllDataNodeData A function to get all data node data from active hash

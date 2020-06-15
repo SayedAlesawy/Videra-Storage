@@ -54,7 +54,6 @@ func (um *UploadManager) Start() {
 
 // HandleUpload is upload endpoint handler
 func (um *UploadManager) handleUpload(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	log.Println(um.logPrefix, fmt.Sprintf("Received request from %s", r.RemoteAddr))
 	reqType := r.Header.Get("Request-Type")
 
 	switch reqType {
@@ -174,9 +173,11 @@ func (um *UploadManager) handleAppendUpload(w http.ResponseWriter, r *http.Reque
 
 	um.fileBaseMutex.Lock()
 	defer um.fileBaseMutex.Unlock()
+	log.Println(um.logPrefix, r.RemoteAddr, filePath, "Writing at offset", file.Offset)
 
 	file.Offset += chunkSize
 	if file.Offset == file.Size {
+		log.Println(um.logPrefix, r.RemoteAddr, fmt.Sprintf("file %s was uploaded successfully!", filePath))
 		file.isCompleted = true
 
 		// Name node should be notified here

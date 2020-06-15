@@ -32,8 +32,16 @@ func (nameNode *NameNode) PingDataNodes() {
 
 			healthCheckResp, err := client.HealthCheck(ctx, &req)
 			if errors.IsError(err) {
-				log.Println(fmt.Sprintf("%s Data node on address: %s is OFFLINE", logPrefix, address))
-				nameNode.RemoveDataNodeData(dataNode)
+				if dataNode.Latency > nameNode.dataNodeOfflineThreshold {
+					log.Println(fmt.Sprintf("%s Data node on address: %s is OFFLINE", logPrefix, address))
+
+					nameNode.RemoveDataNodeData(dataNode)
+				} else {
+					dataNode.Latency++
+					nameNode.InsertDataNodeData(dataNode)
+
+					log.Println(logPrefix, fmt.Sprintf("Data node on address: %s missed a ping", address))
+				}
 
 				continue
 			}

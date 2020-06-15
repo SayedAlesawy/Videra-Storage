@@ -29,12 +29,13 @@ func NodeInstance() *NameNode {
 
 	nameNodeOnce.Do(func() {
 		dataNode := NameNode{
-			IP:                   nameNodeConfig.IP,
-			InternalPort:         nameNodeConfig.InternalRequestsPort,
-			dataNodesTrackingKey: nameNodeConfig.DataNodesTrackingKey,
-			InteralReqTimeout:    time.Duration(nameNodeConfig.InternalReqTimeout) * time.Second,
-			HealthCheckInterval:  time.Duration(nameNodeConfig.HealthCheckInterval) * time.Second,
-			cache:                cacheInstance,
+			IP:                       nameNodeConfig.IP,
+			InternalPort:             nameNodeConfig.InternalRequestsPort,
+			dataNodesTrackingKey:     nameNodeConfig.DataNodesTrackingKey,
+			dataNodeOfflineThreshold: nameNodeConfig.DataNodeOfflineThreshold,
+			InteralReqTimeout:        time.Duration(nameNodeConfig.InternalReqTimeout) * time.Second,
+			HealthCheckInterval:      time.Duration(nameNodeConfig.HealthCheckInterval) * time.Second,
+			cache:                    cacheInstance,
 		}
 
 		nameNodeInstance = &dataNode

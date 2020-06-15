@@ -12,7 +12,6 @@ import (
 
 	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
 	"github.com/SayedAlesawy/Videra-Storage/config"
-	"github.com/juju/fslock"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -95,30 +94,41 @@ func (um *UploadManager) handleInitialUpload(w http.ResponseWriter, r *http.Requ
 	err = createFileDirectory(filepath, 0744)
 	if errors.IsError(err) {
 		log.Println(um.logPrefix, r.RemoteAddr, err)
-		handleRequestError(w, http.StatusBadRequest, "Internal server error")
+		handleRequestError(w, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 
 	err = um.addNewFile(id, filepath, filename, filesize)
 	if errors.IsError(err) {
 		log.Println(um.logPrefix, r.RemoteAddr, err)
-		handleRequestError(w, http.StatusBadRequest, "Internal server error")
+		handleRequestError(w, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 
 	w.Header().Set("ID", id)
-	w.Header().Set("Max-Request-Size", strconv.FormatInt(um.maxChunkSize, 10))
+	w.Header().Set("Max-Request-Size", fmt.Sprintf("%d", um.maxChunkSize))
 	w.WriteHeader(http.StatusCreated)
 }
 
 // handleAppendUpload is a function responsible for handling the first upload request
 func (um *UploadManager) handleAppendUpload(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, um.maxChunkSize)
 	log.Println(um.logPrefix, r.RemoteAddr, "Received APPEND request")
+	// Content length not provided
+	if r.ContentLength <= 0 {
+		log.Println(um.logPrefix, r.RemoteAddr, "Content-Length header not provided")
+		handleRequestError(w, http.StatusBadRequest, "Content-Length header not provided")
+		return
+	}
 
-	expectedHeaders := []string{"Content-Length", "Offset", "ID"}
+	if r.ContentLength > um.maxChunkSize {
+		log.Println(um.logPrefix, r.RemoteAddr, "Request body too large")
+		handleRequestError(w, http.StatusBadRequest, fmt.Sprintf("Maximum allowed content length is %d", um.maxChunkSize))
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, um.maxChunkSize)
+
+	expectedHeaders := []string{"Offset", "ID"}
 	err := um.validateUploadHeaders(&r.Header, expectedHeaders...)
-
 	if err != nil {
 		log.Println(um.logPrefix, r.RemoteAddr, err)
 		handleRequestError(w, http.StatusBadRequest, err.Error())
@@ -128,63 +138,51 @@ func (um *UploadManager) handleAppendUpload(w http.ResponseWriter, r *http.Reque
 	id := r.Header.Get("ID")
 	if !um.validateIDExistance(id) {
 		log.Println(um.logPrefix, r.RemoteAddr, "ID not found")
-		handleRequestError(w, http.StatusNotFound, "ID not found")
+		handleRequestError(w, http.StatusForbidden, "ID not found")
 		return
 	}
 
-	chunkSize, err := strconv.ParseInt(r.Header.Get("Content-Length"), 10, 64)
-	if errors.IsError(err) || chunkSize <= 0 {
-		log.Println(um.logPrefix, r.RemoteAddr, "Invalid chunk size", r.Header.Get("Content-Length"))
-		handleRequestError(w, http.StatusBadRequest, "Invalid chunk size")
-		return
-	}
-
+	contentLength := r.ContentLength
 	offset, err := strconv.ParseInt(r.Header.Get("Offset"), 10, 64)
-	if errors.IsError(err) || !um.validateFileOffset(id, offset, chunkSize) {
+	if errors.IsError(err) || !um.validateFileOffset(id, offset, contentLength) {
 		log.Println(um.logPrefix, r.RemoteAddr, "Invalid file offset", r.Header.Get("Offset"))
-		w.Header().Set("Offset", strconv.FormatInt(um.fileBase[id].Offset, 10))
+		w.Header().Set("Offset", fmt.Sprintf("%d", um.fileBase[id].Offset))
 		handleRequestError(w, http.StatusBadRequest, "Invalid offset")
 		return
 	}
 
-	file := um.fileBase[id]
-	filePath := path.Join(file.Path, file.Name)
-
-	lock := fslock.New(filePath)
-	lock.Lock()
-	defer lock.Unlock()
-
-	fh, err := os.OpenFile(filePath, os.O_WRONLY, 0644)
-	defer fh.Close()
-
+	fileInfo := um.fileBase[id]
+	filePath := path.Join(fileInfo.Path, fileInfo.Name)
+	file, err := os.OpenFile(filePath, os.O_WRONLY, 0644)
+	defer file.Close()
 	if errors.IsError(err) {
 		log.Println(um.logPrefix, r.RemoteAddr, err)
-		handleRequestError(w, http.StatusBadRequest, "Internal server error")
+		handleRequestError(w, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 
 	body, err := ioutil.ReadAll(r.Body)
 	if errors.IsError(err) {
 		log.Println(um.logPrefix, r.RemoteAddr, err)
-		handleRequestError(w, http.StatusBadRequest, "Internal server error")
+		handleRequestError(w, http.StatusInternalServerError, "Internal server error")
 		return
 	}
-	fh.WriteAt(body, offset)
+	file.WriteAt(body, offset)
 
 	um.fileBaseMutex.Lock()
 	defer um.fileBaseMutex.Unlock()
-	log.Println(um.logPrefix, r.RemoteAddr, filePath, "Writing at offset", file.Offset)
+	log.Println(um.logPrefix, r.RemoteAddr, filePath, "Writing at offset", fileInfo.Offset)
 
-	file.Offset += chunkSize
-	if file.Offset == file.Size {
-		log.Println(um.logPrefix, r.RemoteAddr, fmt.Sprintf("file %s was uploaded successfully!", filePath))
-		file.isCompleted = true
+	fileInfo.Offset += contentLength
+	if fileInfo.Offset == fileInfo.Size {
+		log.Println(um.logPrefix, r.RemoteAddr, fmt.Sprintf("File %s was uploaded successfully!", filePath))
+		fileInfo.isCompleted = true
 
 		// Name node should be notified here
 
-		w.WriteHeader(http.StatusAccepted)
+		w.WriteHeader(http.StatusCreated)
 	}
-	um.fileBase[id] = file
+	um.fileBase[id] = fileInfo
 
 }
 

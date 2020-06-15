@@ -6,8 +6,8 @@ import (
 )
 
 func main() {
-	// dataNode := datanode.NodeInstance()
-	// dataNode.JoinCluster()
+	dataNode := datanode.NodeInstance()
+	dataNode.JoinCluster()
 
 	go inner.ServerInstance().Start()
 

@@ -24,11 +24,13 @@ var uploadManagerInstance *UploadManager
 
 // UploadManagerInstance A function to return a singleton upload manager instance
 func UploadManagerInstance() *UploadManager {
+	dataNodeConfig := config.ConfigurationManagerInstance("").DataNodeConfig()
 
 	uploadManagerOnce.Do(func() {
 		uploadManager := UploadManager{
-			fileBase:  make(map[string]FileInfo),
-			logPrefix: "[Upload-Manager]",
+			fileBase:     make(map[string]FileInfo),
+			logPrefix:    "[Upload-Manager]",
+			maxChunkSize: dataNodeConfig.MaxRequestSize,
 		}
 
 		uploadManagerInstance = &uploadManager
@@ -70,7 +72,7 @@ func (um *UploadManager) handleUpload(w http.ResponseWriter, r *http.Request, _ 
 func (um *UploadManager) handleInitialUpload(w http.ResponseWriter, r *http.Request) {
 	log.Println(um.logPrefix, r.RemoteAddr, "Received INIT request")
 
-	expectedHeaders := []string{"Content-Length", "Filename"}
+	expectedHeaders := []string{"Filename", "Filesize"}
 	err := um.validateUploadHeaders(&r.Header, expectedHeaders...)
 
 	if err != nil {
@@ -79,7 +81,7 @@ func (um *UploadManager) handleInitialUpload(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	filesize, err := strconv.ParseInt(r.Header.Get("Content-Length"), 10, 64)
+	filesize, err := strconv.ParseInt(r.Header.Get("Filesize"), 10, 64)
 	if errors.IsError(err) || filesize <= 0 {
 		log.Println(um.logPrefix, r.RemoteAddr, "Error parsing file size")
 		handleRequestError(w, http.StatusBadRequest, "Invalid file size")
@@ -105,9 +107,9 @@ func (um *UploadManager) handleInitialUpload(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
 	w.Header().Set("ID", id)
-	w.Header().Set("Max-Request-Size", string(um.maxChunkSize))
+	w.Header().Set("Max-Request-Size", strconv.FormatInt(um.maxChunkSize, 10))
+	w.WriteHeader(http.StatusCreated)
 }
 
 // handleAppendUpload is a function responsible for handling the first upload request
@@ -115,7 +117,7 @@ func (um *UploadManager) handleAppendUpload(w http.ResponseWriter, r *http.Reque
 	r.Body = http.MaxBytesReader(w, r.Body, um.maxChunkSize)
 	log.Println(um.logPrefix, r.RemoteAddr, "Received APPEND request")
 
-	expectedHeaders := []string{"Content-Length", "Filename", "Offset", "ID"}
+	expectedHeaders := []string{"Content-Length", "Offset", "ID"}
 	err := um.validateUploadHeaders(&r.Header, expectedHeaders...)
 
 	if err != nil {
@@ -141,7 +143,7 @@ func (um *UploadManager) handleAppendUpload(w http.ResponseWriter, r *http.Reque
 	offset, err := strconv.ParseInt(r.Header.Get("Offset"), 10, 64)
 	if errors.IsError(err) || !um.validateFileOffset(id, offset, chunkSize) {
 		log.Println(um.logPrefix, r.RemoteAddr, "Invalid file offset", r.Header.Get("Offset"))
-		w.Header().Set("Offset", string(um.fileBase[id].Offset))
+		w.Header().Set("Offset", strconv.FormatInt(um.fileBase[id].Offset, 10))
 		handleRequestError(w, http.StatusBadRequest, "Invalid offset")
 		return
 	}

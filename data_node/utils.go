@@ -30,7 +30,7 @@ func createFile(filepath string) error {
 	return nil
 }
 
-// generateRandomString generates random string with length n
+// generateRandomString generates random string with length 2*n
 func generateRandomString(n int) string {
 	b := make([]byte, n)
 	rand.Read(b)

@@ -2,9 +2,11 @@ package outer
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	namenode "github.com/SayedAlesawy/Videra-Storage/name_node"
+	"github.com/SayedAlesawy/Videra-Storage/utils/errors"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -15,7 +17,31 @@ func (server *Server) ServeUploadURL(w http.ResponseWriter, r *http.Request, _ h
 	nameNode := namenode.NodeInstance()
 
 	// Get node with minimum number of clients requests
+	choosenDataNode, err := server.getAvailableDataNode(nameNode)
+
+	// There's no available nodes
+	if errors.IsError(err) {
+		log.Println(logPrefix, r.RemoteAddr, err)
+		w.Write([]byte("Service Unavailable"))
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+
+	// update request count for further selection
+	choosenDataNode.RequestCount++
+	nameNode.InsertDataNodeData(choosenDataNode)
+
+	choosenNodeURL := server.getDataNodeUploadURL(choosenDataNode.IP, choosenDataNode.ExternalPort)
+	log.Println(logPrefix, r.RemoteAddr, fmt.Sprintf("routed to node %s with endpoint %s", choosenDataNode.ID, choosenNodeURL))
+	w.Write([]byte(choosenNodeURL))
+	w.WriteHeader(http.StatusOK)
+}
+
+// getAvailableDataNode is a function to get available data node
+// it tries to choose a data node with minimum load
+func (server *Server) getAvailableDataNode(nameNode *namenode.NameNode) (namenode.DataNodeData, error) {
 	var choosenDataNode namenode.DataNodeData
+
 	for idx, dataNode := range nameNode.GetAllDataNodeData() {
 		if idx == 0 {
 			choosenDataNode = dataNode
@@ -25,18 +51,13 @@ func (server *Server) ServeUploadURL(w http.ResponseWriter, r *http.Request, _ h
 			}
 		}
 	}
+
 	// There's no available nodes
 	if choosenDataNode.IP == "" {
-		w.Write([]byte("Service Unavailable"))
-		w.WriteHeader(http.StatusServiceUnavailable)
-		return
+		return choosenDataNode, errors.New("No datanodes available")
 	}
 
-	choosenDataNode.RequestCount++
-	nameNode.InsertDataNodeData(choosenDataNode)
-
-	w.Write([]byte(server.getDataNodeUploadURL(choosenDataNode.IP, choosenDataNode.ExternalPort)))
-	w.WriteHeader(http.StatusOK)
+	return choosenDataNode, nil
 }
 
 // getAddress A function to get the address on which the internal controller listens

@@ -52,7 +52,7 @@ func (server *Server) Start() {
 	log.Fatal(http.ListenAndServe(address, router))
 }
 
-// getAddress A function to get the address on which the internal controller listens
+// getAddress A function to get the address on which the external controller listens
 func (server *Server) getAddress() string {
 	return fmt.Sprintf("http://%s:%s", server.IP, server.Port)
 }

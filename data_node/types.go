@@ -10,7 +10,7 @@ type DataNode struct {
 	IP                    string        //IP of the data node host
 	ID                    string        //Unique ID for the data node
 	InternalPort          string        //Port on which all internal comm is done
-	InteralReqTimeout     time.Duration //Timeout for internal requests
+	InternalReqTimeout    time.Duration //Timeout for internal requests
 	RejoinClusterInterval time.Duration //Frequency of the rejoin cluster request
 	NameNode              NameNodeData  //Houses the needed info about the current name node
 }

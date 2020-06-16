@@ -27,7 +27,7 @@ func (dataNode *DataNode) JoinCluster() {
 			Port: dataNode.InternalPort,
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), dataNode.InteralReqTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), dataNode.InternalReqTimeout)
 		defer cancel()
 
 		joinStatus, err := client.JoinCluster(ctx, &req)

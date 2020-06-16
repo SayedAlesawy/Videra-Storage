@@ -15,7 +15,7 @@ import (
 func (nameNode *NameNode) PingDataNodes() {
 	for range time.Tick(nameNode.HealthCheckInterval) {
 		for _, dataNode := range nameNode.GetAllDataNodeData() {
-			address := nameNode.getNameNodeAddress(dataNode)
+			address := nameNode.getDataNodeInternalAddress(dataNode)
 
 			conn, err := grpc.Dial(address, grpc.WithInsecure())
 			defer conn.Close()

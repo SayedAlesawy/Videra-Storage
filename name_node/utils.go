@@ -8,17 +8,19 @@ import (
 )
 
 // getDataNodeAddress A function to get a data node address
-func (nameNode *NameNode) getNameNodeAddress(dataNode DataNodeData) string {
-	return fmt.Sprintf("%s:%s", dataNode.IP, dataNode.Port)
+func (nameNode *NameNode) getDataNodeInternalAddress(dataNode DataNodeData) string {
+	return fmt.Sprintf("%s:%s", dataNode.IP, dataNode.InternalPort)
 }
 
 // NewDataNodeData A function to obtain a new data node data object
-func NewDataNodeData(id string, ip string, port string) DataNodeData {
+func NewDataNodeData(id string, ip string, internalPort string, externalPort string) DataNodeData {
 	return DataNodeData{
-		ID:      id,
-		IP:      ip,
-		Port:    port,
-		Latency: 0,
+		ID:           id,
+		IP:           ip,
+		InternalPort: internalPort,
+		ExternalPort: externalPort,
+		Latency:      0,
+		RequestCount: 0,
 	}
 }
 

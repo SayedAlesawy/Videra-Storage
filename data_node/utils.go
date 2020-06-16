@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
+	"github.com/SayedAlesawy/Videra-Storage/utils/errors"
 )
 
 //Here goes any utils that are specific to data node

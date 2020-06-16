@@ -1,10 +1,13 @@
 package namenode
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/SayedAlesawy/Videra-Storage/config"
+	"github.com/SayedAlesawy/Videra-Storage/drivers/redis"
+	"github.com/SayedAlesawy/Videra-Storage/utils/errors"
 )
 
 // logPrefix Used for hierarchical logging
@@ -18,19 +21,21 @@ var nameNodeInstance *NameNode
 
 // NodeInstance A function to return a singleton name node instance
 func NodeInstance() *NameNode {
-	nameNodeConfig := config.ConfigurationManagerInstance("").NameNodeConfig()
+	configManager := config.ConfigurationManagerInstance("")
+	nameNodeConfig := configManager.NameNodeConfig()
+
+	cacheInstance, err := redis.Instance(configManager.RedisConfig())
+	errors.HandleError(err, fmt.Sprintf("%s Unable to connect to caching layer", logPrefix), true)
 
 	nameNodeOnce.Do(func() {
 		dataNode := NameNode{
-			IP:                  nameNodeConfig.IP,
-			InternalPort:        nameNodeConfig.InternalRequestsPort,
-			InteralReqTimeout:   time.Duration(nameNodeConfig.InternalReqTimeout) * time.Second,
-			HealthCheckInterval: time.Duration(nameNodeConfig.HealthCheckInterval) * time.Second,
-			DataNodes: []DataNodeData{
-				{IP: "127.0.0.1", Port: "6001"},
-				{IP: "127.0.0.1", Port: "6002"},
-				{IP: "127.0.0.1", Port: "6003"},
-			},
+			IP:                       nameNodeConfig.IP,
+			InternalPort:             nameNodeConfig.InternalRequestsPort,
+			dataNodesTrackingKey:     nameNodeConfig.DataNodesTrackingKey,
+			dataNodeOfflineThreshold: nameNodeConfig.DataNodeOfflineThreshold,
+			InteralReqTimeout:        time.Duration(nameNodeConfig.InternalReqTimeout) * time.Second,
+			HealthCheckInterval:      time.Duration(nameNodeConfig.HealthCheckInterval) * time.Second,
+			cache:                    cacheInstance,
 		}
 
 		nameNodeInstance = &dataNode

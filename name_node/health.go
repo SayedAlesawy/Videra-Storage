@@ -6,15 +6,15 @@ import (
 	"log"
 	"time"
 
-	"github.com/SayedAlesawy/Videra-Ingestion/orchestrator/utils/errors"
 	"github.com/SayedAlesawy/Videra-Storage/data_node/dnpb"
+	"github.com/SayedAlesawy/Videra-Storage/utils/errors"
 	"google.golang.org/grpc"
 )
 
 // PingDataNodes A function to ping all currently conneced data nodes for health checking
 func (nameNode *NameNode) PingDataNodes() {
 	for range time.Tick(nameNode.HealthCheckInterval) {
-		for _, dataNode := range nameNode.DataNodes {
+		for _, dataNode := range nameNode.GetAllDataNodeData() {
 			address := nameNode.getNameNodeAddress(dataNode)
 
 			conn, err := grpc.Dial(address, grpc.WithInsecure())
@@ -32,8 +32,17 @@ func (nameNode *NameNode) PingDataNodes() {
 
 			healthCheckResp, err := client.HealthCheck(ctx, &req)
 			if errors.IsError(err) {
-				//TODO: Remove it from list of tracked nodes
-				log.Println(fmt.Sprintf("%s Data node on address: %s is OFFLINE", logPrefix, address))
+				if dataNode.Latency > nameNode.dataNodeOfflineThreshold {
+					log.Println(fmt.Sprintf("%s Data node on address: %s is OFFLINE", logPrefix, address))
+
+					nameNode.RemoveDataNodeData(dataNode)
+				} else {
+					dataNode.Latency++
+					nameNode.InsertDataNodeData(dataNode)
+
+					log.Println(logPrefix, fmt.Sprintf("Data node on address: %s missed a ping", address))
+				}
+
 				continue
 			}
 

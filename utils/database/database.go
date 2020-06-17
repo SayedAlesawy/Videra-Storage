@@ -30,17 +30,27 @@ func DBInstance() *Database {
 			Name:     databaseConfig.Name,
 		}
 
-		dbHandler, err := gorm.Open("mysql", databaseObj.connectionString())
-		if errors.IsError(err) {
-			panic(err)
-		}
-
-		databaseObj.Connection = dbHandler
+		databaseObj.setDBHandler()
 
 		databaseInstance = &databaseObj
 	})
 
 	return databaseInstance
+}
+
+// setDBHandler A function to obtain a database connection
+func (db *Database) setDBHandler() {
+	dbHandler, err := gorm.Open("mysql", db.connectionString())
+	if errors.IsError(err) {
+		panic(err)
+	}
+
+	err = dbHandler.DB().Ping()
+	if errors.IsError(err) {
+		panic(err)
+	}
+
+	db.Connection = dbHandler
 }
 
 // connectionString A function to return the database connection string

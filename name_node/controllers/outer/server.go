@@ -32,7 +32,7 @@ func ServerInstance() *Server {
 	serverOnce.Do(func() {
 		server := Server{
 			IP:   nameNodeConfig.IP,
-			Port: nameNodeConfig.ExternalRequestsPort,
+			Port: nameNodeConfig.Port,
 		}
 
 		serverInstance = &server
@@ -44,7 +44,7 @@ func ServerInstance() *Server {
 // Start A function to start the external controllers server
 func (server *Server) Start() {
 	router := httprouter.New()
-	router.GET("/upload", server.ServeUploadURL)
+	router.GET("/upload", server.UploadRequestHandler)
 
 	address := server.getAddress()
 

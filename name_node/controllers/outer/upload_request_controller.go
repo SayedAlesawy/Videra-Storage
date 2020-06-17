@@ -10,15 +10,13 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-// ServeUploadURL Handles client's request to retrieve data node url for uploading
-func (server *Server) ServeUploadURL(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// TODO: Add check if current name node is not the master and return the master ip
+// UploadRequestHandler Handles client's request to retrieve data node url for uploading
+func (server *Server) UploadRequestHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 	nameNode := namenode.NodeInstance()
 
 	// Get node with minimum number of clients requests
-	choosenDataNode, err := server.getAvailableDataNode(nameNode)
-
+	chosenDataNode, err := server.getAvailableDataNode(nameNode)
 	// There's no available nodes
 	if errors.IsError(err) {
 		log.Println(logPrefix, r.RemoteAddr, err)
@@ -28,36 +26,36 @@ func (server *Server) ServeUploadURL(w http.ResponseWriter, r *http.Request, _ h
 	}
 
 	// update request count for further selection
-	choosenDataNode.RequestCount++
-	nameNode.InsertDataNodeData(choosenDataNode)
+	chosenDataNode.RequestCount++
+	nameNode.InsertDataNodeData(chosenDataNode)
 
-	choosenNodeURL := server.getDataNodeUploadURL(choosenDataNode.IP, choosenDataNode.ExternalPort)
-	log.Println(logPrefix, r.RemoteAddr, fmt.Sprintf("routed to node %s with endpoint %s", choosenDataNode.ID, choosenNodeURL))
-	w.Write([]byte(choosenNodeURL))
+	chosenNodeURL := server.getDataNodeUploadURL(chosenDataNode.IP, chosenDataNode.Port)
+	log.Println(logPrefix, r.RemoteAddr, fmt.Sprintf("routed to node %s with endpoint %s", chosenDataNode.ID, chosenNodeURL))
+	w.Write([]byte(chosenNodeURL))
 	w.WriteHeader(http.StatusOK)
 }
 
 // getAvailableDataNode is a function to get available data node
 // it tries to choose a data node with minimum load
 func (server *Server) getAvailableDataNode(nameNode *namenode.NameNode) (namenode.DataNodeData, error) {
-	var choosenDataNode namenode.DataNodeData
+	var chosenDataNode namenode.DataNodeData
 
-	for idx, dataNode := range nameNode.GetAllDataNodeData() {
+	dataNodesData := nameNode.GetAllDataNodeData()
+	// There's no available nodes
+	if len(dataNodesData) == 0 {
+		return chosenDataNode, errors.New("No datanodes available")
+	}
+
+	for idx, dataNode := range dataNodesData {
 		if idx == 0 {
-			choosenDataNode = dataNode
+			chosenDataNode = dataNode
 		} else {
-			if choosenDataNode.RequestCount > dataNode.RequestCount {
-				choosenDataNode = dataNode
+			if chosenDataNode.RequestCount > dataNode.RequestCount {
+				chosenDataNode = dataNode
 			}
 		}
 	}
-
-	// There's no available nodes
-	if choosenDataNode.IP == "" {
-		return choosenDataNode, errors.New("No datanodes available")
-	}
-
-	return choosenDataNode, nil
+	return chosenDataNode, nil
 }
 
 // getAddress A function to get the address on which the internal controller listens

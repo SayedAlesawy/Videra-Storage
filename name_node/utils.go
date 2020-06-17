@@ -18,7 +18,7 @@ func NewDataNodeData(id string, ip string, internalPort string, externalPort str
 		ID:           id,
 		IP:           ip,
 		InternalPort: internalPort,
-		ExternalPort: externalPort,
+		Port:         externalPort,
 		Latency:      0,
 		RequestCount: 0,
 	}

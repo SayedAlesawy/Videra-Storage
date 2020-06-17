@@ -13,12 +13,12 @@ func (nameNode *NameNode) getDataNodeInternalAddress(dataNode DataNodeData) stri
 }
 
 // NewDataNodeData A function to obtain a new data node data object
-func NewDataNodeData(id string, ip string, internalPort string, externalPort string) DataNodeData {
+func NewDataNodeData(id string, ip string, internalPort string, port string) DataNodeData {
 	return DataNodeData{
 		ID:           id,
 		IP:           ip,
 		InternalPort: internalPort,
-		Port:         externalPort,
+		Port:         port,
 		Latency:      0,
 		RequestCount: 0,
 	}

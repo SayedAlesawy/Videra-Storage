@@ -10,6 +10,7 @@ message JoinClusterRequest {
   string ID = 1;
   string IP = 2;
   string Port = 3;
+  string InternalPort = 4;
 }
 
 message JoinClusterResponse {

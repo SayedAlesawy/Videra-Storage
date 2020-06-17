@@ -71,11 +71,13 @@ func (server *Server) handleInitialUpload(w http.ResponseWriter, r *http.Request
 	}
 
 	id := datanode.GenerateRandomString(10)
-	filepath := id
 	filename := r.Header.Get("Filename") // Maybe be changed later
-
+	wd, _ := os.Getwd()
+	// file will be at path .../files/id/filaname
+	folderpath := path.Join(wd, "files", id)
+	filepath := path.Join(folderpath, filename)
 	log.Println(ucLogPrefix, r.RemoteAddr, "creating file with id", id)
-	err = datanode.CreateFileDirectory(filepath, 0744)
+	err = datanode.CreateFileDirectory(folderpath, 0744)
 	if errors.IsError(err) {
 		log.Println(ucLogPrefix, r.RemoteAddr, err)
 		handleRequestError(w, http.StatusInternalServerError, "Internal server error")
@@ -136,7 +138,7 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 	}
 
 	fileInfo := server.ucData.fileBase[id]
-	filePath := path.Join(fileInfo.Path, fileInfo.Name)
+	filePath := fileInfo.Path
 	file, err := os.OpenFile(filePath, os.O_WRONLY, 0644)
 	defer file.Close()
 	if errors.IsError(err) {
@@ -175,7 +177,7 @@ func (server *Server) addNewFile(id string, filepath string, filename string, fi
 	server.ucData.fileBaseMutex.Lock()
 	defer server.ucData.fileBaseMutex.Unlock()
 
-	err := datanode.CreateFile(path.Join(filepath, filename))
+	err := datanode.CreateFile(filepath)
 	if errors.IsError(err) {
 		return err
 	}

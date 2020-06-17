@@ -3,6 +3,7 @@ package main
 import (
 	datanode "github.com/SayedAlesawy/Videra-Storage/data_node"
 	"github.com/SayedAlesawy/Videra-Storage/data_node/controllers/inner"
+	"github.com/SayedAlesawy/Videra-Storage/data_node/controllers/outer"
 )
 
 func main() {
@@ -11,6 +12,5 @@ func main() {
 
 	go inner.ServerInstance().Start()
 
-	um := datanode.UploadManagerInstance()
-	um.Start()
+	outer.ServerInstance().Start()
 }

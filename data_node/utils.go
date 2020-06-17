@@ -3,7 +3,6 @@ package datanode
 import (
 	"crypto/rand"
 	"fmt"
-	"net/http"
 	"os"
 
 	"github.com/SayedAlesawy/Videra-Storage/utils/errors"
@@ -11,14 +10,14 @@ import (
 
 //Here goes any utils that are specific to data node
 
-// createFileDirectory creates a directory with given permission
-func createFileDirectory(dirPath string, perm os.FileMode) error {
+// CreateFileDirectory creates a directory with given permission
+func CreateFileDirectory(dirPath string, perm os.FileMode) error {
 	err := os.MkdirAll(dirPath, perm)
 	return err
 }
 
-// createFile A function to create a file given path
-func createFile(filepath string) error {
+// CreateFile A function to create a file given path
+func CreateFile(filepath string) error {
 	file, err := os.Create(filepath)
 
 	if errors.IsError(err) {
@@ -30,17 +29,11 @@ func createFile(filepath string) error {
 	return nil
 }
 
-// generateRandomString generates random string with length 2*n
-func generateRandomString(n int) string {
+// GenerateRandomString generates random string with length 2*n
+func GenerateRandomString(n int) string {
 	b := make([]byte, n)
 	rand.Read(b)
 	return fmt.Sprintf("%x", b)
-}
-
-// handleRequestError A function to handle http request failure
-func handleRequestError(w http.ResponseWriter, statusCode int, message string) {
-	w.WriteHeader(statusCode)
-	w.Write([]byte(message))
 }
 
 // getNameNodeAddress A function to get the name node address

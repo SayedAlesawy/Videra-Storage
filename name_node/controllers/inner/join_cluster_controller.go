@@ -12,8 +12,8 @@ import (
 // JoinCluster Handles the join cluster request
 func (server *Server) JoinCluster(ctx context.Context, req *nnpb.JoinClusterRequest) (*nnpb.JoinClusterResponse, error) {
 	log.Println(logPrefix, fmt.Sprintf("Received join cluster from node: %s on %s:%s", req.ID, req.IP, req.Port))
-
-	dataNodeData := namenode.NewDataNodeData(req.ID, req.IP, req.Port)
+	// External port will be replaced by data node external ip
+	dataNodeData := namenode.NewDataNodeData(req.ID, req.IP, req.Port, "8080")
 
 	ok := namenode.NodeInstance().InsertDataNodeData(dataNodeData)
 	var status nnpb.JoinClusterResponse_JoinStatus

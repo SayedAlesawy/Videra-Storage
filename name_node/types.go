@@ -20,8 +20,10 @@ type NameNode struct {
 
 //DataNodeData Houses the needed info about a data node
 type DataNodeData struct {
-	ID      string `json:"id"`      //Unique ID for each data node
-	IP      string `json:"ip"`      //IP of the data node host
-	Port    string `json:"port"`    //Port on which the name node communicates with the data node
-	Latency int    `json:"latency"` //Count of missed pings by the data node
+	ID           string `json:"id"`            //Unique ID for each data node
+	IP           string `json:"ip"`            //IP of the data node host
+	InternalPort string `json:"internal_port"` //Port on which the name node communicates with the data node
+	Port         string `json:"port"`          //Port on which the data node communicates with clients
+	Latency      int    `json:"latency"`       //Count of missed pings by the data node
+	RequestCount uint   `json:"request_count"` //Number of clients requests routed to the data node
 }

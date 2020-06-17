@@ -22,9 +22,10 @@ func (dataNode *DataNode) JoinCluster() {
 
 		log.Println(logPrefix, "Sending join cluster request to name node")
 		req := nnpb.JoinClusterRequest{
-			ID:   dataNode.ID,
-			IP:   dataNode.IP,
-			Port: dataNode.InternalPort,
+			ID:           dataNode.ID,
+			IP:           dataNode.IP,
+			Port:         dataNode.Port,
+			InternalPort: dataNode.InternalPort,
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), dataNode.InternalReqTimeout)

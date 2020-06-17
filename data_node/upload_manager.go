@@ -40,12 +40,10 @@ func UploadManagerInstance() *UploadManager {
 
 // Start A function to start listening
 func (um *UploadManager) Start() {
-	dataNodeConfig := config.ConfigurationManagerInstance("").DataNodeConfig()
-
 	router := httprouter.New()
 	router.POST("/upload", um.handleUpload)
 
-	address := fmt.Sprintf("%s:%s", dataNodeConfig.IP, dataNodeConfig.Port)
+	address := fmt.Sprintf("%s:%s", NodeInstance().IP, NodeInstance().Port)
 
 	log.Println(um.logPrefix, fmt.Sprintf("Listening for external requests on %s", address))
 	log.Fatal(http.ListenAndServe(address, router))

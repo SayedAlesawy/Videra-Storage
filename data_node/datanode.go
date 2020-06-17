@@ -24,6 +24,7 @@ func NodeInstance() *DataNode {
 		dataNode := DataNode{
 			IP:                    dataNodeConfig.IP,
 			ID:                    dataNodeConfig.ID,
+			Port:                  dataNodeConfig.Port,
 			InternalPort:          dataNodeConfig.InternalRequestsPort,
 			InternalReqTimeout:    time.Duration(dataNodeConfig.InternalReqTimeout) * time.Second,
 			RejoinClusterInterval: time.Duration(dataNodeConfig.RejoinClusterInterval) * time.Second,

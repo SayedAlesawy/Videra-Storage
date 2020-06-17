@@ -9,6 +9,7 @@ import (
 type DataNode struct {
 	IP                    string        //IP of the data node host
 	ID                    string        //Unique ID for the data node
+	Port                  string        //Port on which all external comm is done
 	InternalPort          string        //Port on which all internal comm is done
 	InternalReqTimeout    time.Duration //Timeout for internal requests
 	RejoinClusterInterval time.Duration //Frequency of the rejoin cluster request

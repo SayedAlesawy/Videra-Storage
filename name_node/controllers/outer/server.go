@@ -54,5 +54,5 @@ func (server *Server) Start() {
 
 // getAddress A function to get the address on which the external controller listens
 func (server *Server) getAddress() string {
-	return fmt.Sprintf("http://%s:%s", server.IP, server.Port)
+	return fmt.Sprintf("%s:%s", server.IP, server.Port)
 }

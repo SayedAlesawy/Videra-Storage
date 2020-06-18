@@ -20,8 +20,8 @@ func (server *Server) UploadRequestHandler(w http.ResponseWriter, r *http.Reques
 	// There's no available nodes
 	if errors.IsError(err) {
 		log.Println(logPrefix, r.RemoteAddr, err)
-		w.Write([]byte("Service Unavailable"))
 		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte("Service Unavailable"))
 		return
 	}
 
@@ -31,8 +31,8 @@ func (server *Server) UploadRequestHandler(w http.ResponseWriter, r *http.Reques
 
 	chosenNodeURL := server.getDataNodeUploadURL(chosenDataNode.IP, chosenDataNode.Port)
 	log.Println(logPrefix, r.RemoteAddr, fmt.Sprintf("routed to node %s with endpoint %s", chosenDataNode.ID, chosenNodeURL))
-	w.Write([]byte(chosenNodeURL))
 	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(chosenNodeURL))
 }
 
 // getAvailableDataNode is a function to get available data node

@@ -8,7 +8,7 @@ import (
 	"os"
 	"path"
 	"strconv"
-	"sync"
+	"time"
 
 	"github.com/SayedAlesawy/Videra-Storage/config"
 	datanode "github.com/SayedAlesawy/Videra-Storage/data_node"
@@ -17,23 +17,6 @@ import (
 )
 
 var ucLogPrefix = "[Upload-Controller]"
-
-// UploadControllerData represents storage to keep files info
-// and keeps track of what files are currently in data node
-type UploadControllerData struct {
-	fileBase      map[string]datanode.FileInfo // Holds information about files available in data node
-	fileBaseMutex sync.RWMutex                 // For safe concurrent access to filebase
-	maxChunkSize  int64                        // Maximum acceptable size of received chunk
-}
-
-func newUploadControllerData() *UploadControllerData {
-	dataNodeConfig := config.ConfigurationManagerInstance("").DataNodeConfig()
-
-	return &UploadControllerData{
-		fileBase:     make(map[string]datanode.FileInfo),
-		maxChunkSize: dataNodeConfig.MaxRequestSize,
-	}
-}
 
 // UploadRequestHandler is upload endpoint handler
 func (server *Server) UploadRequestHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -46,6 +29,7 @@ func (server *Server) UploadRequestHandler(w http.ResponseWriter, r *http.Reques
 		server.handleAppendUpload(w, r)
 	default:
 		log.Println(ucLogPrefix, r.RemoteAddr, fmt.Sprintf("request-type header value undefined - %s", reqType))
+
 		handleRequestError(w, http.StatusBadRequest, "Request-Type header value is not undefined")
 	}
 }
@@ -91,8 +75,25 @@ func (server *Server) handleInitialUpload(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	//Insert a file info record in the database
+	err = datanode.NodeInstance().DB.Connection.Create(&datanode.File{
+		Token:       id,
+		Name:        filename,
+		Path:        filepath,
+		Size:        filesize,
+		Offset:      0,
+		CompletedAt: time.Time{},
+	}).Error
+	if errors.IsError(err) {
+		log.Println(ucLogPrefix, r.RemoteAddr, err)
+		handleRequestError(w, http.StatusInternalServerError, "Internal server error")
+		return
+	}
+
+	maxRequestSize := config.ConfigurationManagerInstance("").DataNodeConfig().MaxRequestSize
+
 	w.Header().Set("ID", id)
-	w.Header().Set("Max-Request-Size", fmt.Sprintf("%d", server.ucData.maxChunkSize))
+	w.Header().Set("Max-Request-Size", fmt.Sprintf("%d", maxRequestSize))
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -106,12 +107,14 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if r.ContentLength > server.ucData.maxChunkSize {
+	maxRequestSize := config.ConfigurationManagerInstance("").DataNodeConfig().MaxRequestSize
+	if r.ContentLength > maxRequestSize {
 		log.Println(ucLogPrefix, r.RemoteAddr, "Request body too large")
-		handleRequestError(w, http.StatusBadRequest, fmt.Sprintf("Maximum allowed content length is %d", server.ucData.maxChunkSize))
+		handleRequestError(w, http.StatusBadRequest, fmt.Sprintf("Maximum allowed content length is %d", maxRequestSize))
 		return
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, server.ucData.maxChunkSize)
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
 	expectedHeaders := []string{"Offset", "ID"}
 	err := validateUploadHeaders(&r.Header, expectedHeaders...)
@@ -121,23 +124,25 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	//Fetch the file info from the database
 	id := r.Header.Get("ID")
-	if !server.validateIDExistance(id) {
-		log.Println(ucLogPrefix, r.RemoteAddr, "ID not found")
-		handleRequestError(w, http.StatusForbidden, "ID not found")
-		return
+	var fileInfo datanode.File
+
+	found := datanode.NodeInstance().DB.Connection.Where("token = ?", id).Find(&fileInfo).RecordNotFound()
+	if !found {
+		log.Println(ucLogPrefix, r.RemoteAddr, fmt.Sprintf("Record with token: %s is not found", id))
+		handleRequestError(w, http.StatusNotFound, fmt.Sprintf("Record with token: %s is not found", id))
 	}
 
 	contentLength := r.ContentLength
 	offset, err := strconv.ParseInt(r.Header.Get("Offset"), 10, 64)
-	if errors.IsError(err) || !server.validateFileOffset(id, offset, contentLength) {
+	if errors.IsError(err) || !server.validateFileOffset(fileInfo, offset, contentLength) {
 		log.Println(ucLogPrefix, r.RemoteAddr, "Invalid file offset", r.Header.Get("Offset"))
-		w.Header().Set("Offset", fmt.Sprintf("%d", server.ucData.fileBase[id].Offset))
+		w.Header().Set("Offset", fmt.Sprintf("%d", fileInfo.Offset))
 		handleRequestError(w, http.StatusBadRequest, "Invalid offset")
 		return
 	}
 
-	fileInfo := server.ucData.fileBase[id]
 	filePath := fileInfo.Path
 	file, err := os.OpenFile(filePath, os.O_WRONLY, 0644)
 	defer file.Close()
@@ -153,65 +158,49 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 		handleRequestError(w, http.StatusInternalServerError, "Internal server error")
 		return
 	}
+
+	log.Println(ucLogPrefix, r.RemoteAddr, filePath, "Writing at offset", fileInfo.Offset)
 	file.WriteAt(body, offset)
 
-	server.ucData.fileBaseMutex.Lock()
-	defer server.ucData.fileBaseMutex.Unlock()
-	log.Println(ucLogPrefix, r.RemoteAddr, filePath, "Writing at offset", fileInfo.Offset)
-
+	//Update values
 	fileInfo.Offset += contentLength
 	if fileInfo.Offset == fileInfo.Size {
-		log.Println(ucLogPrefix, r.RemoteAddr, fmt.Sprintf("File %s was uploaded successfully!", filePath))
-		fileInfo.IsCompleted = true
-
-		// Name node should be notified here
-
-		w.WriteHeader(http.StatusCreated)
+		fileInfo.CompletedAt = time.Now()
 	}
-	server.ucData.fileBase[id] = fileInfo
 
+	err = datanode.NodeInstance().DB.Connection.Save(&fileInfo).Error
+	if errors.IsError(err) {
+		log.Println(ucLogPrefix, r.RemoteAddr, err)
+		handleRequestError(w, http.StatusInternalServerError, "Internal server error")
+		return
+	}
+
+	if fileInfo.Offset == fileInfo.Size {
+		log.Println(ucLogPrefix, r.RemoteAddr, fmt.Sprintf("File %s was uploaded successfully!", filePath))
+	}
+
+	w.WriteHeader(http.StatusCreated)
 }
 
 // addNewFile is a function to add new file to storage and file base
 func (server *Server) addNewFile(id string, filepath string, filename string, filesize int64) error {
-	server.ucData.fileBaseMutex.Lock()
-	defer server.ucData.fileBaseMutex.Unlock()
-
 	err := datanode.CreateFile(filepath)
 	if errors.IsError(err) {
 		return err
 	}
 
-	server.ucData.fileBase[id] = datanode.FileInfo{
-		Name:        filename,
-		Path:        filepath,
-		Offset:      0,
-		Size:        filesize,
-		IsCompleted: false,
-	}
-
 	return nil
 }
 
-func (server *Server) validateIDExistance(id string) bool {
-	server.ucData.fileBaseMutex.RLock()
-	defer server.ucData.fileBaseMutex.RUnlock()
-
-	_, present := server.ucData.fileBase[id]
-	return present
-}
-
-func (server *Server) validateFileOffset(id string, offset int64, chunkSize int64) bool {
-	server.ucData.fileBaseMutex.RLock()
-	defer server.ucData.fileBaseMutex.RUnlock()
-
+// validateFileOffset A function validate file offset
+func (server *Server) validateFileOffset(fileinfo datanode.File, offset int64, chunkSize int64) bool {
 	if offset < 0 {
 		return false
 	}
 
-	file := server.ucData.fileBase[id]
-	if file.Offset == offset && !file.IsCompleted && file.Offset+chunkSize <= file.Size {
+	if fileinfo.Offset == offset && fileinfo.CompletedAt.IsZero() && fileinfo.Offset+chunkSize <= fileinfo.Size {
 		return true
 	}
+
 	return false
 }

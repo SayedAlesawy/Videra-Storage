@@ -33,7 +33,7 @@ func NodeInstance() *DataNode {
 				IP:   dataNodeConfig.NameNodeIP,
 				Port: dataNodeConfig.NameNodeInternalRequestsPort,
 			},
-			DB: database.DBInstance(),
+			DB: database.DBInstance(dataNodeConfig.StorageDBName),
 		}
 
 		dataNode.DB.Connection.AutoMigrate(&File{})

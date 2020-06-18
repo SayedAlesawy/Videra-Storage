@@ -18,7 +18,7 @@ var databaseOnce sync.Once
 var databaseInstance *Database
 
 // DBInstance A function to return a database instance
-func DBInstance() *Database {
+func DBInstance(dbName string) *Database {
 	databaseOnce.Do(func() {
 		databaseConfig := config.ConfigurationManagerInstance("").DatabaseConfig()
 
@@ -27,7 +27,7 @@ func DBInstance() *Database {
 			Password: databaseConfig.Password,
 			Host:     databaseConfig.Host,
 			Port:     databaseConfig.Port,
-			Name:     databaseConfig.Name,
+			Name:     dbName,
 		}
 
 		databaseObj.setDBHandler()

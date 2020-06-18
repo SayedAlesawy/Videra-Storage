@@ -10,7 +10,6 @@ type Databaseconfig struct {
 	Password string //Database password
 	Host     string //Database host
 	Port     string //Database port
-	Name     string //Database name
 }
 
 // databaseConfigOnce Used to garauntee thread safety for singleton instances
@@ -27,7 +26,6 @@ func (manager *ConfigurationManager) DatabaseConfig() *Databaseconfig {
 			Password: envString("DB_PASSWORD", "mysqlpassword"),
 			Host:     envString("DB_HOST", "127.0.0.1"),
 			Port:     envString("DB_PORT", "3306"),
-			Name:     envString("DB_NAME", "videra_storage"),
 		}
 
 		databaseConfigInstance = &databaseConfig

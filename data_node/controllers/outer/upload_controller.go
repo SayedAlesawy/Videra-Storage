@@ -81,6 +81,7 @@ func (server *Server) handleInitialUpload(w http.ResponseWriter, r *http.Request
 		Name:        filename,
 		Path:        filepath,
 		Size:        filesize,
+		DataNodeID:  datanode.NodeInstance().ID,
 		Offset:      0,
 		CompletedAt: time.Time{},
 	}).Error

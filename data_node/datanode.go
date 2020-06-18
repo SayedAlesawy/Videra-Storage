@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/SayedAlesawy/Videra-Storage/config"
+	"github.com/SayedAlesawy/Videra-Storage/utils/database"
 )
 
 // logPrefix Used for hierarchical logging
@@ -32,7 +33,10 @@ func NodeInstance() *DataNode {
 				IP:   dataNodeConfig.NameNodeIP,
 				Port: dataNodeConfig.NameNodeInternalRequestsPort,
 			},
+			DB: database.DBInstance(dataNodeConfig.StorageDBName),
 		}
+
+		dataNode.DB.Connection.AutoMigrate(&File{})
 
 		dataNodeInstance = &dataNode
 	})

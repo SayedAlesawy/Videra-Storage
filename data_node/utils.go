@@ -8,8 +8,6 @@ import (
 	"github.com/SayedAlesawy/Videra-Storage/utils/errors"
 )
 
-//Here goes any utils that are specific to data node
-
 // CreateFileDirectory creates a directory with given permission
 func CreateFileDirectory(dirPath string, perm os.FileMode) error {
 	err := os.MkdirAll(dirPath, perm)

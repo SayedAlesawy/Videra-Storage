@@ -12,9 +12,8 @@ import (
 
 // Server Handles external communication routers with client
 type Server struct {
-	IP     string                //IP on which the server is hosted
-	Port   string                //Port on which the server listens to requests
-	ucData *UploadControllerData //Contains information needed by upload controller
+	IP   string //IP on which the server is hosted
+	Port string //Port on which the server listens to requests
 }
 
 // logPrefix Used for hierarchical logging
@@ -32,9 +31,8 @@ func ServerInstance() *Server {
 
 	serverOnce.Do(func() {
 		server := Server{
-			IP:     dataNodeConfig.IP,
-			Port:   dataNodeConfig.Port,
-			ucData: newUploadControllerData(),
+			IP:   dataNodeConfig.IP,
+			Port: dataNodeConfig.Port,
 		}
 
 		serverInstance = &server

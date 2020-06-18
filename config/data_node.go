@@ -13,6 +13,7 @@ type DataNodeconfig struct {
 	NameNodeInternalRequestsPort string //The internal requests port of the name node
 	Port                         string //Port to listen to requests
 	NetworkProtocol              string //Network protocol used by the data node
+	StorageDBName                string //Storage database name
 	InternalReqTimeout           int    //Timeout for internal requests
 	MaxRequestSize               int64  //Maximum acceptable size of body size
 	RejoinClusterInterval        int    //Freqency of retrying the join cluster request
@@ -36,6 +37,7 @@ func (manager *ConfigurationManager) DataNodeConfig() *DataNodeconfig {
 			NameNodeInternalRequestsPort: envString("NAME_NODE_INTERNAL_REQ_PORT", "7000"),
 			Port:                         envString("PORT", "8080"),
 			NetworkProtocol:              envString("NET_PROTOCOL", "tcp"),
+			StorageDBName:                envString("STO_DB_NAME", "videra_storage"),
 			InternalReqTimeout:           int(envInt("INTERNAL_REQ_TIMEOUT", "5")),
 			MaxRequestSize:               envInt("MAX_REQUEST_SIZE", "4194304"),
 			RejoinClusterInterval:        int(envInt("REJOIN_CLUSTER_INTERVAL", "2")),

@@ -77,13 +77,12 @@ func (server *Server) handleInitialUpload(w http.ResponseWriter, r *http.Request
 
 	//Insert a file info record in the database
 	err = datanode.NodeInstance().DB.Connection.Create(&datanode.File{
-		Token:       id,
-		Name:        filename,
-		Path:        filepath,
-		Size:        filesize,
-		DataNodeID:  datanode.NodeInstance().ID,
-		Offset:      0,
-		CompletedAt: time.Time{},
+		Token:      id,
+		Name:       filename,
+		Path:       filepath,
+		Size:       filesize,
+		DataNodeID: datanode.NodeInstance().ID,
+		Offset:     0,
 	}).Error
 	if errors.IsError(err) {
 		log.Println(ucLogPrefix, r.RemoteAddr, err)
@@ -129,10 +128,11 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 	id := r.Header.Get("ID")
 	var fileInfo datanode.File
 
-	found := datanode.NodeInstance().DB.Connection.Where("token = ?", id).Find(&fileInfo).RecordNotFound()
-	if !found {
+	notFound := datanode.NodeInstance().DB.Connection.Where("token = ?", id).Find(&fileInfo).RecordNotFound()
+	if notFound {
 		log.Println(ucLogPrefix, r.RemoteAddr, fmt.Sprintf("Record with token: %s is not found", id))
 		handleRequestError(w, http.StatusNotFound, fmt.Sprintf("Record with token: %s is not found", id))
+		return
 	}
 
 	contentLength := r.ContentLength
@@ -166,7 +166,8 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 	//Update values
 	fileInfo.Offset += contentLength
 	if fileInfo.Offset == fileInfo.Size {
-		fileInfo.CompletedAt = time.Now()
+		now := time.Now()
+		fileInfo.CompletedAt = &now
 	}
 
 	err = datanode.NodeInstance().DB.Connection.Save(&fileInfo).Error
@@ -178,9 +179,8 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 
 	if fileInfo.Offset == fileInfo.Size {
 		log.Println(ucLogPrefix, r.RemoteAddr, fmt.Sprintf("File %s was uploaded successfully!", filePath))
+		w.WriteHeader(http.StatusCreated)
 	}
-
-	w.WriteHeader(http.StatusCreated)
 }
 
 // addNewFile is a function to add new file to storage and file base
@@ -199,7 +199,7 @@ func (server *Server) validateFileOffset(fileinfo datanode.File, offset int64, c
 		return false
 	}
 
-	if fileinfo.Offset == offset && fileinfo.CompletedAt.IsZero() && fileinfo.Offset+chunkSize <= fileinfo.Size {
+	if fileinfo.Offset == offset && fileinfo.CompletedAt == nil && fileinfo.Offset+chunkSize <= fileinfo.Size {
 		return true
 	}
 

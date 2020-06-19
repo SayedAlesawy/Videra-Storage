@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path"
 	"strconv"
 	"strings"
@@ -207,22 +208,30 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 	if fileInfo.Offset == fileInfo.Size && fileInfo.Type != datanode.ModelFileType {
 		now := time.Now()
 		fileInfo.CompletedAt = &now
-	}
 
-	if fileInfo.Offset == fileInfo.Size && fileInfo.Type == datanode.ConfigFileType {
-		// Update associated file info
-		associatedModelID := r.Header.Get("Associated-Model-ID")
-		modelFileInfo, err := server.updateAssociatedModel(associatedModelID, fileInfo)
-		if errors.IsError(err) {
-			log.Println(ucLogPrefix, r.RemoteAddr, err)
-			handleRequestError(w, http.StatusInternalServerError, "Internal server error")
-			return
-		}
-		err = datanode.NodeInstance().DB.Connection.Save(&modelFileInfo).Error
-		if errors.IsError(err) {
-			log.Println(ucLogPrefix, r.RemoteAddr, err)
-			handleRequestError(w, http.StatusInternalServerError, "Internal server error")
-			return
+		if fileInfo.Type == datanode.ConfigFileType {
+			// Update associated file info
+			associatedModelID := r.Header.Get("Associated-Model-ID")
+			modelFileInfo, err := server.updateAssociatedModel(associatedModelID, fileInfo)
+			if errors.IsError(err) {
+				log.Println(ucLogPrefix, r.RemoteAddr, err)
+				handleRequestError(w, http.StatusInternalServerError, "Internal server error")
+				return
+			}
+			err = datanode.NodeInstance().DB.Connection.Save(&modelFileInfo).Error
+			if errors.IsError(err) {
+				log.Println(ucLogPrefix, r.RemoteAddr, err)
+				handleRequestError(w, http.StatusInternalServerError, "Internal server error")
+				return
+			}
+		} else if fileInfo.Type == datanode.VideoFileType {
+			videoMetadata, err := server.fetchVideoMetaData(fileInfo)
+			if errors.IsError(err) {
+				log.Println(ucLogPrefix, r.RemoteAddr, err)
+				handleRequestError(w, http.StatusInternalServerError, "Internal server error")
+				return
+			}
+			fileInfo.Extras = videoMetadata
 		}
 	}
 
@@ -276,6 +285,7 @@ func (server *Server) validateFileTypes(fileType string) bool {
 	return true
 }
 
+//validateAssociatedModel is a function responsible for validating existance of model with id parameter
 func (server *Server) validateAssociatedModel(associatedModelID string) error {
 	var modelFileInfo datanode.File
 	modelNotFound := datanode.NodeInstance().DB.Connection.Where("token = ? and type = ?", associatedModelID, datanode.ModelFileType).Find(&modelFileInfo).RecordNotFound()
@@ -294,6 +304,7 @@ func (server *Server) validateAssociatedModel(associatedModelID string) error {
 	return nil
 }
 
+//updateAssociatedModel is a function responsible model database entry associated with config file
 func (server *Server) updateAssociatedModel(associatedModelID string, configInfo datanode.File) (datanode.File, error) {
 	var modelFileInfo datanode.File
 
@@ -315,4 +326,29 @@ func (server *Server) updateAssociatedModel(associatedModelID string, configInfo
 	modelFileInfo.CompletedAt = &t
 	modelFileInfo.Extras = string(marsh)
 	return modelFileInfo, nil
+}
+
+// fetchVideoMetaData is a function responsible of retrieving metadata from video file
+func (server *Server) fetchVideoMetaData(fileInfo datanode.File) (string, error) {
+	dataNodeConfig := config.ConfigurationManagerInstance("").DataNodeConfig()
+	command := dataNodeConfig.MetadataCommand
+	script := dataNodeConfig.MetadataScriptPath
+	inputFile := fileInfo.Path
+	outputFile := fileInfo.Path + fileInfo.Token //just a temp file to save metadata
+
+	fmt.Println(inputFile, outputFile)
+	// this should be replaced with data from config file
+	cmd := exec.Command(command, script, "-i", inputFile, "-o", outputFile)
+	err := cmd.Run()
+	if errors.IsError(err) {
+		return "", err
+	}
+	cmd.Wait()
+	content, err := ioutil.ReadFile(outputFile)
+	if errors.IsError(err) {
+		return "", err
+	}
+	os.Remove(outputFile) //remove the temp file
+	text := string(content)
+	return text, nil
 }

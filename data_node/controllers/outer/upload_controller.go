@@ -1,6 +1,7 @@
 package outer
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/SayedAlesawy/Videra-Storage/config"
@@ -21,12 +23,12 @@ var ucLogPrefix = "[Upload-Controller]"
 
 // UploadRequestHandler is upload endpoint handler
 func (server *Server) UploadRequestHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	reqType := r.Header.Get("Request-Type")
+	reqType := strings.ToLower(r.Header.Get("Request-Type"))
 
 	switch reqType {
-	case "INIT":
+	case "init":
 		server.handleInitialUpload(w, r)
-	case "APPEND":
+	case "append":
 		server.handleAppendUpload(w, r)
 	default:
 		log.Println(ucLogPrefix, r.RemoteAddr, fmt.Sprintf("request-type header value undefined - %s", reqType))
@@ -37,14 +39,26 @@ func (server *Server) UploadRequestHandler(w http.ResponseWriter, r *http.Reques
 
 // handleInitialUpload is a function responsible for handling the first upload request
 func (server *Server) handleInitialUpload(w http.ResponseWriter, r *http.Request) {
-	log.Println(ucLogPrefix, r.RemoteAddr, "Received INIT request")
+	log.Println(ucLogPrefix, r.RemoteAddr, "Received init request")
 
+<<<<<<< HEAD
 	expectedHeaders := []string{"Filename", "Filesize"}
 	err := requests.ValidateUploadHeaders(&r.Header, expectedHeaders...)
+=======
+	expectedHeaders := []string{"Filename", "Filesize", "Filetype"}
+	err := validateUploadHeaders(&r.Header, expectedHeaders...)
+>>>>>>> 6b40410... Add file types upload
 
 	if err != nil {
 		log.Println(ucLogPrefix, r.RemoteAddr, err)
 		requests.HandleRequestError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	fileType := strings.ToLower(r.Header.Get("Filetype"))
+	if !server.validateFileTypes(fileType) {
+		log.Println(ucLogPrefix, r.RemoteAddr, "Unsupported file type", fileType)
+		handleRequestError(w, http.StatusBadRequest, fmt.Sprintf("Supported types are video and model"))
 		return
 	}
 
@@ -80,6 +94,7 @@ func (server *Server) handleInitialUpload(w http.ResponseWriter, r *http.Request
 	err = datanode.NodeInstance().DB.Connection.Create(&datanode.File{
 		Token:      id,
 		Name:       filename,
+		Type:       fileType,
 		Path:       filepath,
 		Size:       filesize,
 		DataNodeID: datanode.NodeInstance().ID,
@@ -100,7 +115,7 @@ func (server *Server) handleInitialUpload(w http.ResponseWriter, r *http.Request
 
 // handleAppendUpload is a function responsible for handling the first upload request
 func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request) {
-	log.Println(ucLogPrefix, r.RemoteAddr, "Received APPEND request")
+	log.Println(ucLogPrefix, r.RemoteAddr, "Received append request")
 	// Content length not provided
 	if r.ContentLength <= 0 {
 		log.Println(ucLogPrefix, r.RemoteAddr, "Content-Length header not provided")
@@ -135,6 +150,22 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 		log.Println(ucLogPrefix, r.RemoteAddr, fmt.Sprintf("Record with token: %s is not found", id))
 		requests.HandleRequestError(w, http.StatusNotFound, fmt.Sprintf("Record with token: %s is not found", id))
 		return
+	}
+
+	if fileInfo.Type == datanode.ConfigFileType {
+		err := validateUploadHeaders(&r.Header, "Associated-Model-ID")
+		if err != nil {
+			log.Println(ucLogPrefix, r.RemoteAddr, err)
+			handleRequestError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		associatedModelID := r.Header.Get("Associated-Model-ID")
+		err = server.validateAssociatedModel(associatedModelID)
+		if err != nil {
+			log.Println(ucLogPrefix, r.RemoteAddr, err.Error())
+			handleRequestError(w, http.StatusNotFound, err.Error())
+			return
+		}
 	}
 
 	if server.isFileComplete(fileInfo) {
@@ -173,9 +204,26 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 
 	//Update values
 	fileInfo.Offset += contentLength
-	if fileInfo.Offset == fileInfo.Size {
+	if fileInfo.Offset == fileInfo.Size && fileInfo.Type != datanode.ModelFileType {
 		now := time.Now()
 		fileInfo.CompletedAt = &now
+	}
+
+	if fileInfo.Offset == fileInfo.Size && fileInfo.Type == datanode.ConfigFileType {
+		// Update associated file info
+		associatedModelID := r.Header.Get("Associated-Model-ID")
+		modelFileInfo, err := server.updateAssociatedModel(associatedModelID, fileInfo)
+		if errors.IsError(err) {
+			log.Println(ucLogPrefix, r.RemoteAddr, err)
+			handleRequestError(w, http.StatusInternalServerError, "Internal server error")
+			return
+		}
+		err = datanode.NodeInstance().DB.Connection.Save(&modelFileInfo).Error
+		if errors.IsError(err) {
+			log.Println(ucLogPrefix, r.RemoteAddr, err)
+			handleRequestError(w, http.StatusInternalServerError, "Internal server error")
+			return
+		}
 	}
 
 	err = datanode.NodeInstance().DB.Connection.Save(&fileInfo).Error
@@ -217,4 +265,54 @@ func (server *Server) validateFileOffset(fileinfo datanode.File, offset int64, c
 // isFileComplete A function to check if file upload was completed previously
 func (server *Server) isFileComplete(fileinfo datanode.File) bool {
 	return fileinfo.CompletedAt != nil
+}
+
+func (server *Server) validateFileTypes(fileType string) bool {
+	for _, supportedFileType := range datanode.SupportedFileTypes {
+		if supportedFileType == fileType {
+			return true
+		}
+	}
+	return true
+}
+
+func (server *Server) validateAssociatedModel(associatedModelID string) error {
+	var modelFileInfo datanode.File
+	modelNotFound := datanode.NodeInstance().DB.Connection.Where("token = ? and type = ?", associatedModelID, datanode.ModelFileType).Find(&modelFileInfo).RecordNotFound()
+	if modelNotFound {
+		return errors.New("Invalid Model")
+	}
+
+	if server.isFileComplete(modelFileInfo) {
+		return errors.New("Model was associated with another config")
+	}
+
+	if modelFileInfo.Offset != modelFileInfo.Size {
+		return errors.New("Model wasn't completly uploaded")
+	}
+
+	return nil
+}
+
+func (server *Server) updateAssociatedModel(associatedModelID string, configInfo datanode.File) (datanode.File, error) {
+	var modelFileInfo datanode.File
+
+	err := datanode.NodeInstance().DB.Connection.Where("token = ?", associatedModelID).Find(&modelFileInfo).Error
+	if err != nil {
+		return modelFileInfo, err
+	}
+
+	extras := struct {
+		AssociatedConfigID   string `json:"associated_config_ID"`
+		AssociatedConfigPath string `json:"associated_config_path"`
+	}{
+		configInfo.Token,
+		configInfo.Path,
+	}
+	marsh, _ := json.Marshal(extras)
+
+	t := time.Now()
+	modelFileInfo.CompletedAt = &t
+	modelFileInfo.Extras = string(marsh)
+	return modelFileInfo, nil
 }

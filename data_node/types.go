@@ -24,10 +24,14 @@ type NameNodeData struct {
 	Port string //Port on which the data node communicates with the name node
 }
 
-type fileType string
-
 const (
-	videoFile  fileType = "VideoFile"
-	modelFile           = "ModelFile"
-	configFile          = "ConfigFile"
+	//VideoFileType represents video type
+	VideoFileType string = "video"
+	//ModelFileType represents model type
+	ModelFileType string = "model"
+	//ConfigFileType represents config type
+	ConfigFileType string = "config"
 )
+
+//SupportedFileTypes represents list of supported file types
+var SupportedFileTypes = [...]string{VideoFileType, ModelFileType, ConfigFileType}

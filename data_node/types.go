@@ -34,4 +34,13 @@ const (
 )
 
 //SupportedFileTypes represents list of supported file types
-var SupportedFileTypes = [...]string{VideoFileType, ModelFileType, ConfigFileType}
+var SupportedFileTypes = [...]string{VideoFileType, ModelFileType}
+
+// ModelExtras represents extra parameters associated with model
+type ModelExtras struct {
+	ModelSize            int64  `json:"model_size"`             //size of model file
+	AssociatedConfigPath string `json:"associated_config_path"` //path to config file
+	AssociatedConfigSize int64  `json:"associated_config_size"` //config file size
+	AssociatedCodePath   string `json:"associated_code_path"`   //path to code file
+	AssociatedCodeSize   int64  `json:"associated_code_size"`   //code file size
+}

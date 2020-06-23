@@ -22,6 +22,9 @@ import (
 
 var ucLogPrefix = "[Upload-Controller]"
 
+//ModelUploadOrder represents the order in which model files will be uploaded
+var modelUploadOrder = [...]string{"model", "config", "code"}
+
 // UploadRequestHandler is upload endpoint handler
 func (server *Server) UploadRequestHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	reqType := strings.ToLower(r.Header.Get("Request-Type"))
@@ -42,13 +45,8 @@ func (server *Server) UploadRequestHandler(w http.ResponseWriter, r *http.Reques
 func (server *Server) handleInitialUpload(w http.ResponseWriter, r *http.Request) {
 	log.Println(ucLogPrefix, r.RemoteAddr, "Received init request")
 
-<<<<<<< HEAD
-	expectedHeaders := []string{"Filename", "Filesize"}
-	err := requests.ValidateUploadHeaders(&r.Header, expectedHeaders...)
-=======
 	expectedHeaders := []string{"Filename", "Filesize", "Filetype"}
 	err := validateUploadHeaders(&r.Header, expectedHeaders...)
->>>>>>> 6b40410... Add file types upload
 
 	if err != nil {
 		log.Println(ucLogPrefix, r.RemoteAddr, err)
@@ -63,19 +61,150 @@ func (server *Server) handleInitialUpload(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	filesize, err := strconv.ParseInt(r.Header.Get("Filesize"), 10, 64)
-	if errors.IsError(err) || filesize <= 0 {
+	switch fileType {
+	case datanode.ModelFileType:
+		server.handleModelInitialUpload(w, r)
+	case datanode.VideoFileType:
+		server.handleVideoInitialUpload(w, r)
+	}
+}
+
+// handleModelInitialUpload is responsible for handling upload request for model file
+func (server *Server) handleModelInitialUpload(w http.ResponseWriter, r *http.Request) {
+	expectedHeaders := []string{"Model-Size", "Config-Size", "Code-Size"}
+	err := validateUploadHeaders(&r.Header, expectedHeaders...)
+	if err != nil {
+		log.Println(ucLogPrefix, r.RemoteAddr, err)
+		handleRequestError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	err = server.validateModelSize(&r.Header)
+	if errors.IsError(err) {
+		log.Println(ucLogPrefix, r.RemoteAddr, err)
+		handleRequestError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	filesize, _ := strconv.ParseInt(r.Header.Get("Filesize"), 10, 64)
+	modelSize, _ := strconv.ParseInt(r.Header.Get("Model-Size"), 10, 64)
+	configSize, _ := strconv.ParseInt(r.Header.Get("Config-Size"), 10, 64)
+	codeSize, _ := strconv.ParseInt(r.Header.Get("Code-Size"), 10, 64)
+
+	id := datanode.GenerateRandomString(10)
+	filename := r.Header.Get("Filename")
+	fileType := strings.ToLower(r.Header.Get("Filetype"))
+
+	wd, _ := os.Getwd()
+	// file will be at path .../files/id/filaname
+	folderpath := path.Join(wd, "files", id)
+
+	modelPath := path.Join(folderpath, filename)
+	configPath := path.Join(folderpath, fmt.Sprintf("%s_config.conf", id))
+	codePath := path.Join(folderpath, fmt.Sprintf("%s_code.py", id))
+
+	log.Println(ucLogPrefix, r.RemoteAddr, "creating file with id", id)
+	err = datanode.CreateFileDirectory(folderpath, 0744)
+	if errors.IsError(err) {
+		log.Println(ucLogPrefix, r.RemoteAddr, err)
+		handleRequestError(w, http.StatusInternalServerError, "Internal server error")
+		return
+	}
+
+	err = datanode.CreateFile(modelPath)
+	if errors.IsError(err) {
+		log.Println(ucLogPrefix, r.RemoteAddr, err)
+		handleRequestError(w, http.StatusInternalServerError, "Internal server error")
+		return
+	}
+
+	err = datanode.CreateFile(configPath)
+	if errors.IsError(err) {
+		log.Println(ucLogPrefix, r.RemoteAddr, err)
+		handleRequestError(w, http.StatusInternalServerError, "Internal server error")
+		return
+	}
+
+	err = datanode.CreateFile(codePath)
+	if errors.IsError(err) {
+		log.Println(ucLogPrefix, r.RemoteAddr, err)
+		handleRequestError(w, http.StatusInternalServerError, "Internal server error")
+		return
+	}
+
+	extras := datanode.ModelExtras{
+		ModelSize:            modelSize,
+		AssociatedConfigPath: configPath,
+		AssociatedConfigSize: configSize,
+		AssociatedCodePath:   codePath,
+		AssociatedCodeSize:   codeSize,
+	}
+
+	extrasBytes, _ := json.Marshal(extras)
+	//Insert a file info record in the database
+	err = datanode.NodeInstance().DB.Connection.Create(&datanode.File{
+		Token:      id,
+		Name:       filename,
+		Type:       fileType,
+		Path:       modelPath,
+		Extras:     string(extrasBytes),
+		Size:       filesize,
+		DataNodeID: datanode.NodeInstance().ID,
+		Offset:     0,
+	}).Error
+	if errors.IsError(err) {
+		log.Println(ucLogPrefix, r.RemoteAddr, err)
+		handleRequestError(w, http.StatusInternalServerError, "Internal server error")
+		return
+	}
+
+	maxRequestSize := config.ConfigurationManagerInstance("").DataNodeConfig().MaxRequestSize
+
+	w.Header().Set("ID", id)
+	w.Header().Set("Max-Request-Size", fmt.Sprintf("%d", maxRequestSize))
+	uploadOrderJSON, _ := json.Marshal(modelUploadOrder)
+	w.Header().Set("Upload-Order", string(uploadOrderJSON))
+	w.WriteHeader(http.StatusCreated)
+}
+
+// validateModelSize validates the model and associated files size
+func (server *Server) validateModelSize(h *http.Header) error {
+	requiredSizes := []string{h.Get("Filesize"), h.Get("Model-Size"), h.Get("Config-Size"), h.Get("Code-Size")}
+	for _, req := range requiredSizes {
+		err := isValideSize(req)
+		if errors.IsError(err) {
+			return errors.New(fmt.Sprintf("Invalid %s", req))
+		}
+	}
+
+	// in model case, filesize should be the sum of (model,config,code) sizes
+	filesize, _ := strconv.ParseInt(h.Get("Filesize"), 10, 64)
+	modelSize, _ := strconv.ParseInt(h.Get("Model-Size"), 10, 64)
+	configSize, _ := strconv.ParseInt(h.Get("Config-Size"), 10, 64)
+	codeSize, _ := strconv.ParseInt(h.Get("Code-Size"), 10, 64)
+	if filesize != modelSize+configSize+codeSize {
+		return errors.New("Invalid filesize")
+	}
+	return nil
+}
+
+// handleVideoInitialUpload is responsible for handling upload request for video file
+func (server *Server) handleVideoInitialUpload(w http.ResponseWriter, r *http.Request) {
+	err := isValideSize(r.Header.Get("Filesize"))
+	if errors.IsError(err) {
 		log.Println(ucLogPrefix, r.RemoteAddr, "Error parsing file size")
 		requests.HandleRequestError(w, http.StatusBadRequest, "Invalid file size")
 		return
 	}
 
+	filesize, _ := strconv.ParseInt(r.Header.Get("Filesize"), 10, 64)
 	id := datanode.GenerateRandomString(10)
-	filename := r.Header.Get("Filename") // Maybe be changed later
+	filename := r.Header.Get("Filename")
+	fileType := strings.ToLower(r.Header.Get("Filetype"))
 	wd, _ := os.Getwd()
 	// file will be at path .../files/id/filaname
 	folderpath := path.Join(wd, "files", id)
 	filepath := path.Join(folderpath, filename)
+
 	log.Println(ucLogPrefix, r.RemoteAddr, "creating file with id", id)
 	err = datanode.CreateFileDirectory(folderpath, 0744)
 	if errors.IsError(err) {
@@ -84,7 +213,7 @@ func (server *Server) handleInitialUpload(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	err = server.addNewFile(id, filepath, filename, filesize)
+	err = datanode.CreateFile(filepath)
 	if errors.IsError(err) {
 		log.Println(ucLogPrefix, r.RemoteAddr, err)
 		requests.HandleRequestError(w, http.StatusInternalServerError, "Internal server error")
@@ -246,16 +375,6 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 		log.Println(ucLogPrefix, r.RemoteAddr, fmt.Sprintf("File %s was uploaded successfully!", filePath))
 		w.WriteHeader(http.StatusCreated)
 	}
-}
-
-// addNewFile is a function to add new file to storage and file base
-func (server *Server) addNewFile(id string, filepath string, filename string, filesize int64) error {
-	err := datanode.CreateFile(filepath)
-	if errors.IsError(err) {
-		return err
-	}
-
-	return nil
 }
 
 // validateFileOffset A function validate file offset

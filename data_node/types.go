@@ -29,8 +29,6 @@ const (
 	VideoFileType string = "video"
 	//ModelFileType represents model type
 	ModelFileType string = "model"
-	//ConfigFileType represents config type
-	ConfigFileType string = "config"
 )
 
 //SupportedFileTypes represents list of supported file types

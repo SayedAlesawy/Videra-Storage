@@ -245,7 +245,7 @@ func (server *Server) handleVideoInitialUpload(w http.ResponseWriter, r *http.Re
 
 // handleAppendUpload is a function responsible for handling the first upload request
 func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request) {
-	log.Println(ucLogPrefix, r.RemoteAddr, "Received append request")
+	log.Println(ucLogPrefix, r.RemoteAddr, "Received APPEND request")
 	// Content length not provided
 	if r.ContentLength <= 0 {
 		log.Println(ucLogPrefix, r.RemoteAddr, "Content-Length header not provided")
@@ -255,8 +255,8 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 
 	maxRequestSize := config.ConfigurationManagerInstance("").DataNodeConfig().MaxRequestSize
 	if r.ContentLength > maxRequestSize {
-		log.Println(ucLogPrefix, r.RemoteAddr, "Request body too large", r.ContentLength)
-		w.Header().Set("Max-Request-Size", fmt.Sprintf("%v", maxRequestSize))
+		log.Println(ucLogPrefix, r.RemoteAddr, "Request body too large")
+		w.Header().Set("Max-Request-Size", fmt.Sprintf("%d", maxRequestSize))
 		handleRequestError(w, http.StatusBadRequest, fmt.Sprintf("Maximum allowed content length is %d", maxRequestSize))
 		return
 	}
@@ -282,38 +282,47 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if fileInfo.Type == datanode.ConfigFileType {
-		err := validateUploadHeaders(&r.Header, "Associated-Model-ID")
-		if err != nil {
-			log.Println(ucLogPrefix, r.RemoteAddr, err)
-			handleRequestError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		associatedModelID := r.Header.Get("Associated-Model-ID")
-		err = server.validateAssociatedModel(associatedModelID)
-		if err != nil {
-			log.Println(ucLogPrefix, r.RemoteAddr, err.Error())
-			handleRequestError(w, http.StatusNotFound, err.Error())
-			return
-		}
-	}
-
-	if server.isFileComplete(fileInfo) {
-		log.Println(ucLogPrefix, r.RemoteAddr, "File was completed from previous upload")
-		w.WriteHeader(http.StatusCreated)
-		return
-	}
-
 	contentLength := r.ContentLength
 	offset, err := strconv.ParseInt(r.Header.Get("Offset"), 10, 64)
 	if errors.IsError(err) || !server.validateFileOffset(fileInfo, offset, contentLength) {
-		log.Println(ucLogPrefix, r.RemoteAddr, fmt.Sprintf("Invalid file offset, expected %v found %v", fileInfo.Offset, r.Header.Get("Offset")))
+		log.Println(ucLogPrefix, r.RemoteAddr, "Invalid file offset", r.Header.Get("Offset"))
 		w.Header().Set("Offset", fmt.Sprintf("%d", fileInfo.Offset))
 		requests.HandleRequestError(w, http.StatusBadRequest, "Invalid offset")
 		return
 	}
 
 	filePath := fileInfo.Path
+
+	// writeoffset is offset at file which will be written at,
+	// in video file it's the same as offset variable,
+	// but in model it's relative based on which file is being written at,
+	// for example offset maybe 500 but it will write at offset 0 of config file
+	var writeOffset int64
+	writeOffset = offset
+
+	if fileInfo.Type == datanode.ModelFileType {
+		var modelExtras datanode.ModelExtras
+		err := json.Unmarshal([]byte(fileInfo.Extras), &modelExtras)
+		if errors.IsError(err) {
+			log.Println(ucLogPrefix, r.RemoteAddr, err)
+			handleRequestError(w, http.StatusInternalServerError, "Internal server error")
+			return
+		}
+
+		// ****Model****/**Config**/*Code*/
+		if offset >= modelExtras.ModelSize {
+			// chunk is either belongs to config file or code file
+			if offset < modelExtras.ModelSize+modelExtras.AssociatedConfigSize {
+				filePath = modelExtras.AssociatedConfigPath
+				writeOffset -= modelExtras.ModelSize
+			} else if offset >= modelExtras.ModelSize+modelExtras.AssociatedConfigSize {
+				filePath = modelExtras.AssociatedCodePath
+				writeOffset -= modelExtras.ModelSize + modelExtras.AssociatedConfigSize
+			}
+		}
+	}
+
+	fmt.Println(filePath)
 	file, err := os.OpenFile(filePath, os.O_WRONLY, 0644)
 	defer file.Close()
 	if errors.IsError(err) {
@@ -330,30 +339,15 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 	}
 
 	log.Println(ucLogPrefix, r.RemoteAddr, filePath, "Writing at offset", fileInfo.Offset)
-	file.WriteAt(body, offset)
+	file.WriteAt(body, writeOffset)
 
 	//Update values
 	fileInfo.Offset += contentLength
-	if fileInfo.Offset == fileInfo.Size && fileInfo.Type != datanode.ModelFileType {
+	if fileInfo.Offset == fileInfo.Size {
 		now := time.Now()
 		fileInfo.CompletedAt = &now
 
-		if fileInfo.Type == datanode.ConfigFileType {
-			// Update associated file info
-			associatedModelID := r.Header.Get("Associated-Model-ID")
-			modelFileInfo, err := server.updateAssociatedModel(associatedModelID, fileInfo)
-			if errors.IsError(err) {
-				log.Println(ucLogPrefix, r.RemoteAddr, err)
-				handleRequestError(w, http.StatusInternalServerError, "Internal server error")
-				return
-			}
-			err = datanode.NodeInstance().DB.Connection.Save(&modelFileInfo).Error
-			if errors.IsError(err) {
-				log.Println(ucLogPrefix, r.RemoteAddr, err)
-				handleRequestError(w, http.StatusInternalServerError, "Internal server error")
-				return
-			}
-		} else if fileInfo.Type == datanode.VideoFileType {
+		if fileInfo.Type == datanode.VideoFileType {
 			videoMetadata, err := server.fetchVideoMetaData(fileInfo)
 			if errors.IsError(err) {
 				log.Println(ucLogPrefix, r.RemoteAddr, err)
@@ -404,70 +398,34 @@ func (server *Server) validateFileTypes(fileType string) bool {
 	return true
 }
 
-//validateAssociatedModel is a function responsible for validating existance of model with id parameter
-func (server *Server) validateAssociatedModel(associatedModelID string) error {
-	var modelFileInfo datanode.File
-	modelNotFound := datanode.NodeInstance().DB.Connection.Where("token = ? and type = ?", associatedModelID, datanode.ModelFileType).Find(&modelFileInfo).RecordNotFound()
-	if modelNotFound {
-		return errors.New("Invalid Model")
-	}
-
-	if server.isFileComplete(modelFileInfo) {
-		return errors.New("Model was associated with another config")
-	}
-
-	if modelFileInfo.Offset != modelFileInfo.Size {
-		return errors.New("Model wasn't completly uploaded")
-	}
-
-	return nil
-}
-
-//updateAssociatedModel is a function responsible model database entry associated with config file
-func (server *Server) updateAssociatedModel(associatedModelID string, configInfo datanode.File) (datanode.File, error) {
-	var modelFileInfo datanode.File
-
-	err := datanode.NodeInstance().DB.Connection.Where("token = ?", associatedModelID).Find(&modelFileInfo).Error
-	if err != nil {
-		return modelFileInfo, err
-	}
-
-	extras := struct {
-		AssociatedConfigID   string `json:"associated_config_ID"`
-		AssociatedConfigPath string `json:"associated_config_path"`
-	}{
-		configInfo.Token,
-		configInfo.Path,
-	}
-	marsh, _ := json.Marshal(extras)
-
-	t := time.Now()
-	modelFileInfo.CompletedAt = &t
-	modelFileInfo.Extras = string(marsh)
-	return modelFileInfo, nil
-}
-
 // fetchVideoMetaData is a function responsible of retrieving metadata from video file
 func (server *Server) fetchVideoMetaData(fileInfo datanode.File) (string, error) {
 	dataNodeConfig := config.ConfigurationManagerInstance("").DataNodeConfig()
+
+	//temp file to save metadata
+	tempFile, err := ioutil.TempFile("", "*_metadata.txt")
+	if err != nil {
+		return "", err
+	}
+	tempFile.Close()
+	defer os.Remove(tempFile.Name()) //remove the temp file at the end
+
 	command := dataNodeConfig.MetadataCommand
 	script := dataNodeConfig.MetadataScriptPath
 	inputFile := fileInfo.Path
-	outputFile := fileInfo.Path + fileInfo.Token //just a temp file to save metadata
+	outputFile := tempFile.Name()
 
-	fmt.Println(inputFile, outputFile)
-	// this should be replaced with data from config file
 	cmd := exec.Command(command, script, "-i", inputFile, "-o", outputFile)
-	err := cmd.Run()
+	err = cmd.Run()
 	if errors.IsError(err) {
 		return "", err
 	}
 	cmd.Wait()
+
 	content, err := ioutil.ReadFile(outputFile)
 	if errors.IsError(err) {
 		return "", err
 	}
-	os.Remove(outputFile) //remove the temp file
-	text := string(content)
-	return text, nil
+	metadata := string(content)
+	return metadata, nil
 }

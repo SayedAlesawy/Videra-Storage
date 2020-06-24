@@ -255,8 +255,8 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 
 	maxRequestSize := config.ConfigurationManagerInstance("").DataNodeConfig().MaxRequestSize
 	if r.ContentLength > maxRequestSize {
-		log.Println(ucLogPrefix, r.RemoteAddr, "Request body too large")
-		w.Header().Set("Max-Request-Size", fmt.Sprintf("%d", maxRequestSize))
+		log.Println(ucLogPrefix, r.RemoteAddr, "Request body too large", r.ContentLength)
+		w.Header().Set("Max-Request-Size", fmt.Sprintf("%v", maxRequestSize))
 		handleRequestError(w, http.StatusBadRequest, fmt.Sprintf("Maximum allowed content length is %d", maxRequestSize))
 		return
 	}
@@ -282,10 +282,16 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	if server.isFileComplete(fileInfo) {
+		log.Println(ucLogPrefix, r.RemoteAddr, "File was completed from previous upload")
+		w.WriteHeader(http.StatusCreated)
+		return
+	}
+
 	contentLength := r.ContentLength
 	offset, err := strconv.ParseInt(r.Header.Get("Offset"), 10, 64)
 	if errors.IsError(err) || !server.validateFileOffset(fileInfo, offset, contentLength) {
-		log.Println(ucLogPrefix, r.RemoteAddr, "Invalid file offset", r.Header.Get("Offset"))
+		log.Println(ucLogPrefix, r.RemoteAddr, fmt.Sprintf("Invalid file offset, expected %v found %v", fileInfo.Offset, r.Header.Get("Offset")))
 		w.Header().Set("Offset", fmt.Sprintf("%d", fileInfo.Offset))
 		requests.HandleRequestError(w, http.StatusBadRequest, "Invalid offset")
 		return
@@ -322,7 +328,6 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	fmt.Println(filePath)
 	file, err := os.OpenFile(filePath, os.O_WRONLY, 0644)
 	defer file.Close()
 	if errors.IsError(err) {

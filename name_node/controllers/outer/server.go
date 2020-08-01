@@ -44,7 +44,9 @@ func ServerInstance() *Server {
 // Start A function to start the external controllers server
 func (server *Server) Start() {
 	router := httprouter.New()
+
 	router.GET("/upload", server.UploadRequestHandler)
+	router.GET("/search", server.SearchRequestHandler)
 
 	address := server.getAddress()
 

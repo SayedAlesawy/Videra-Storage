@@ -7,6 +7,7 @@ import (
 
 	"github.com/SayedAlesawy/Videra-Storage/config"
 	"github.com/SayedAlesawy/Videra-Storage/drivers/redis"
+	"github.com/SayedAlesawy/Videra-Storage/utils/database"
 	"github.com/SayedAlesawy/Videra-Storage/utils/errors"
 )
 
@@ -28,7 +29,7 @@ func NodeInstance() *NameNode {
 	errors.HandleError(err, fmt.Sprintf("%s Unable to connect to caching layer", logPrefix), true)
 
 	nameNodeOnce.Do(func() {
-		dataNode := NameNode{
+		nameNode := NameNode{
 			IP:                       nameNodeConfig.IP,
 			InternalPort:             nameNodeConfig.InternalRequestsPort,
 			dataNodesTrackingKey:     nameNodeConfig.DataNodesTrackingKey,
@@ -36,9 +37,12 @@ func NodeInstance() *NameNode {
 			InteralReqTimeout:        time.Duration(nameNodeConfig.InternalReqTimeout) * time.Second,
 			HealthCheckInterval:      time.Duration(nameNodeConfig.HealthCheckInterval) * time.Second,
 			cache:                    cacheInstance,
+			DB:                       database.DBInstance(nameNodeConfig.StorageDBName),
 		}
 
-		nameNodeInstance = &dataNode
+		nameNode.DB.Connection.AutoMigrate(&Clip{})
+
+		nameNodeInstance = &nameNode
 	})
 
 	return nameNodeInstance

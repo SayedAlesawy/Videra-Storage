@@ -11,6 +11,7 @@ type NameNodeconfig struct {
 	Port                     string //The external requests ports
 	NetworkProtocol          string //Name network protcol
 	DataNodesTrackingKey     string //Redis key where data nodes info is stored
+	StorageDBName            string //Storage database name
 	InternalReqTimeout       int    //Timeout for internal requests
 	HealthCheckInterval      int    //The frequency of the health check request to data nodes
 	DataNodeOfflineThreshold int    //Threshold of missed pings at which a data node is considered offline
@@ -31,6 +32,7 @@ func (manager *ConfigurationManager) NameNodeConfig() *NameNodeconfig {
 			Port:                     envString("PORT", "8080"),
 			NetworkProtocol:          envString("NET_PROTOCOL", "tcp"),
 			DataNodesTrackingKey:     envString("DN_INFO_REDIS_KEY", "storage:data-nodes-info"),
+			StorageDBName:            envString("STO_DB_NAME", "videra_storage"),
 			InternalReqTimeout:       int(envInt("INTERNAL_REQ_TIMEOUT", "5")),
 			HealthCheckInterval:      int(envInt("HEALTH_CHECK_INTERVAL", "2")),
 			DataNodeOfflineThreshold: int(envInt("DN_OFFLINE_THRESHOLD", "3")),

@@ -13,7 +13,7 @@ var TimeStampLayout = "2006-01-02T15:04:05.000Z"
 // HandleRequestError A function to handle http request failure
 func HandleRequestError(w http.ResponseWriter, statusCode int, message string) {
 	w.WriteHeader(statusCode)
-	w.Write([]byte(message))
+	fmt.Fprintf(w, FormatMessage("error", message))
 }
 
 // ValidateUploadHeaders is a function to check existance of parameters inside header
@@ -25,4 +25,9 @@ func ValidateUploadHeaders(h *http.Header, params ...string) error {
 	}
 
 	return nil
+}
+
+// FormatMessage A function to format a message into json
+func FormatMessage(key string, message string) string {
+	return fmt.Sprintf("{\"%s\": \"%s\"}", key, message)
 }

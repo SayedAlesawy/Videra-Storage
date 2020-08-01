@@ -13,6 +13,7 @@ import (
 	"github.com/SayedAlesawy/Videra-Storage/config"
 	datanode "github.com/SayedAlesawy/Videra-Storage/data_node"
 	"github.com/SayedAlesawy/Videra-Storage/utils/errors"
+	"github.com/SayedAlesawy/Videra-Storage/utils/requests"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -30,7 +31,7 @@ func (server *Server) UploadRequestHandler(w http.ResponseWriter, r *http.Reques
 	default:
 		log.Println(ucLogPrefix, r.RemoteAddr, fmt.Sprintf("request-type header value undefined - %s", reqType))
 
-		handleRequestError(w, http.StatusBadRequest, "Request-Type header value is not undefined")
+		requests.HandleRequestError(w, http.StatusBadRequest, "Request-Type header value is not undefined")
 	}
 }
 
@@ -39,18 +40,18 @@ func (server *Server) handleInitialUpload(w http.ResponseWriter, r *http.Request
 	log.Println(ucLogPrefix, r.RemoteAddr, "Received INIT request")
 
 	expectedHeaders := []string{"Filename", "Filesize"}
-	err := validateUploadHeaders(&r.Header, expectedHeaders...)
+	err := requests.ValidateUploadHeaders(&r.Header, expectedHeaders...)
 
 	if err != nil {
 		log.Println(ucLogPrefix, r.RemoteAddr, err)
-		handleRequestError(w, http.StatusBadRequest, err.Error())
+		requests.HandleRequestError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	filesize, err := strconv.ParseInt(r.Header.Get("Filesize"), 10, 64)
 	if errors.IsError(err) || filesize <= 0 {
 		log.Println(ucLogPrefix, r.RemoteAddr, "Error parsing file size")
-		handleRequestError(w, http.StatusBadRequest, "Invalid file size")
+		requests.HandleRequestError(w, http.StatusBadRequest, "Invalid file size")
 		return
 	}
 
@@ -64,14 +65,14 @@ func (server *Server) handleInitialUpload(w http.ResponseWriter, r *http.Request
 	err = datanode.CreateFileDirectory(folderpath, 0744)
 	if errors.IsError(err) {
 		log.Println(ucLogPrefix, r.RemoteAddr, err)
-		handleRequestError(w, http.StatusInternalServerError, "Internal server error")
+		requests.HandleRequestError(w, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 
 	err = server.addNewFile(id, filepath, filename, filesize)
 	if errors.IsError(err) {
 		log.Println(ucLogPrefix, r.RemoteAddr, err)
-		handleRequestError(w, http.StatusInternalServerError, "Internal server error")
+		requests.HandleRequestError(w, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 
@@ -86,7 +87,7 @@ func (server *Server) handleInitialUpload(w http.ResponseWriter, r *http.Request
 	}).Error
 	if errors.IsError(err) {
 		log.Println(ucLogPrefix, r.RemoteAddr, err)
-		handleRequestError(w, http.StatusInternalServerError, "Internal server error")
+		requests.HandleRequestError(w, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 
@@ -103,24 +104,24 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 	// Content length not provided
 	if r.ContentLength <= 0 {
 		log.Println(ucLogPrefix, r.RemoteAddr, "Content-Length header not provided")
-		handleRequestError(w, http.StatusBadRequest, "Content-Length header not provided")
+		requests.HandleRequestError(w, http.StatusBadRequest, "Content-Length header not provided")
 		return
 	}
 
 	maxRequestSize := config.ConfigurationManagerInstance("").DataNodeConfig().MaxRequestSize
 	if r.ContentLength > maxRequestSize {
 		log.Println(ucLogPrefix, r.RemoteAddr, "Request body too large")
-		handleRequestError(w, http.StatusBadRequest, fmt.Sprintf("Maximum allowed content length is %d", maxRequestSize))
+		requests.HandleRequestError(w, http.StatusBadRequest, fmt.Sprintf("Maximum allowed content length is %d", maxRequestSize))
 		return
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
 	expectedHeaders := []string{"Offset", "ID"}
-	err := validateUploadHeaders(&r.Header, expectedHeaders...)
+	err := requests.ValidateUploadHeaders(&r.Header, expectedHeaders...)
 	if err != nil {
 		log.Println(ucLogPrefix, r.RemoteAddr, err)
-		handleRequestError(w, http.StatusBadRequest, err.Error())
+		requests.HandleRequestError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -131,7 +132,7 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 	notFound := datanode.NodeInstance().DB.Connection.Where("token = ?", id).Find(&fileInfo).RecordNotFound()
 	if notFound {
 		log.Println(ucLogPrefix, r.RemoteAddr, fmt.Sprintf("Record with token: %s is not found", id))
-		handleRequestError(w, http.StatusNotFound, fmt.Sprintf("Record with token: %s is not found", id))
+		requests.HandleRequestError(w, http.StatusNotFound, fmt.Sprintf("Record with token: %s is not found", id))
 		return
 	}
 
@@ -140,7 +141,7 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 	if errors.IsError(err) || !server.validateFileOffset(fileInfo, offset, contentLength) {
 		log.Println(ucLogPrefix, r.RemoteAddr, "Invalid file offset", r.Header.Get("Offset"))
 		w.Header().Set("Offset", fmt.Sprintf("%d", fileInfo.Offset))
-		handleRequestError(w, http.StatusBadRequest, "Invalid offset")
+		requests.HandleRequestError(w, http.StatusBadRequest, "Invalid offset")
 		return
 	}
 
@@ -149,14 +150,14 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 	defer file.Close()
 	if errors.IsError(err) {
 		log.Println(ucLogPrefix, r.RemoteAddr, err)
-		handleRequestError(w, http.StatusInternalServerError, "Internal server error")
+		requests.HandleRequestError(w, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 
 	body, err := ioutil.ReadAll(r.Body)
 	if errors.IsError(err) {
 		log.Println(ucLogPrefix, r.RemoteAddr, err)
-		handleRequestError(w, http.StatusInternalServerError, "Internal server error")
+		requests.HandleRequestError(w, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 
@@ -173,7 +174,7 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 	err = datanode.NodeInstance().DB.Connection.Save(&fileInfo).Error
 	if errors.IsError(err) {
 		log.Println(ucLogPrefix, r.RemoteAddr, err)
-		handleRequestError(w, http.StatusInternalServerError, "Internal server error")
+		requests.HandleRequestError(w, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 

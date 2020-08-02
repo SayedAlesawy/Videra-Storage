@@ -189,6 +189,18 @@ func (server *Server) validateModelSize(h *http.Header) error {
 
 // handleVideoInitialUpload is responsible for handling upload request for video file
 func (server *Server) handleVideoInitialUpload(w http.ResponseWriter, r *http.Request) {
+	associatedModelID := r.Header.Get("Associated-Model-ID")
+	if associatedModelID == "" {
+		log.Println(ucLogPrefix, r.RemoteAddr, "Associated Model ID not provided")
+		requests.HandleRequestError(w, http.StatusBadRequest, "Associated Model ID not provided")
+		return
+	}
+	notFound := datanode.NodeInstance().DB.Connection.Where("token = ?", associatedModelID).RecordNotFound()
+	if notFound {
+		log.Println(ucLogPrefix, r.RemoteAddr, fmt.Sprintf("Model with token: %s is not found", associatedModelID))
+		requests.HandleRequestError(w, http.StatusNotFound, fmt.Sprintf("Record with token: %s is not found", associatedModelID))
+		return
+	}
 	err := isValideSize(r.Header.Get("Filesize"))
 	if errors.IsError(err) {
 		log.Println(ucLogPrefix, r.RemoteAddr, "Error parsing file size")
@@ -220,6 +232,14 @@ func (server *Server) handleVideoInitialUpload(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	metadata := datanode.VideoMetadata{}
+	metadata.AssociatedModel = associatedModelID
+	metadataJSON, err := json.Marshal(metadata)
+	if errors.IsError(err) {
+		log.Println(ucLogPrefix, r.RemoteAddr, err)
+		requests.HandleRequestError(w, http.StatusInternalServerError, "Internal server error")
+		return
+	}
 	//Insert a file info record in the database
 	err = datanode.NodeInstance().DB.Connection.Create(&datanode.File{
 		Token:      id,
@@ -227,7 +247,9 @@ func (server *Server) handleVideoInitialUpload(w http.ResponseWriter, r *http.Re
 		Type:       fileType,
 		Path:       filepath,
 		Size:       filesize,
+		Extras:     string(metadataJSON),
 		DataNodeID: datanode.NodeInstance().ID,
+		Parent:     id,
 		Offset:     0,
 	}).Error
 	if errors.IsError(err) {
@@ -353,13 +375,16 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 		fileInfo.CompletedAt = &now
 
 		if fileInfo.Type == datanode.VideoFileType {
-			videoMetadata, err := server.fetchVideoMetaData(fileInfo)
+			var videoMetadata datanode.VideoMetadata
+			json.Unmarshal([]byte(fileInfo.Extras), &videoMetadata)
+			err := server.fetchVideoMetaData(fileInfo, &videoMetadata)
 			if errors.IsError(err) {
 				log.Println(ucLogPrefix, r.RemoteAddr, err)
 				handleRequestError(w, http.StatusInternalServerError, "Internal server error")
 				return
 			}
-			fileInfo.Extras = videoMetadata
+			metaData, err := json.Marshal(videoMetadata)
+			fileInfo.Extras = string(metaData)
 		}
 	}
 
@@ -404,13 +429,13 @@ func (server *Server) validateFileTypes(fileType string) bool {
 }
 
 // fetchVideoMetaData is a function responsible of retrieving metadata from video file
-func (server *Server) fetchVideoMetaData(fileInfo datanode.File) (string, error) {
+func (server *Server) fetchVideoMetaData(fileInfo datanode.File, extras *datanode.VideoMetadata) error {
 	dataNodeConfig := config.ConfigurationManagerInstance("").DataNodeConfig()
 
 	//temp file to save metadata
 	tempFile, err := ioutil.TempFile("", "*_metadata.txt")
 	if err != nil {
-		return "", err
+		return err
 	}
 	tempFile.Close()
 	defer os.Remove(tempFile.Name()) //remove the temp file at the end
@@ -423,14 +448,20 @@ func (server *Server) fetchVideoMetaData(fileInfo datanode.File) (string, error)
 	cmd := exec.Command(command, script, "-i", inputFile, "-o", outputFile)
 	err = cmd.Run()
 	if errors.IsError(err) {
-		return "", err
+		return err
 	}
 	cmd.Wait()
 
 	content, err := ioutil.ReadFile(outputFile)
 	if errors.IsError(err) {
-		return "", err
+		return err
 	}
-	metadata := string(content)
-	return metadata, nil
+	err = json.Unmarshal(content, extras)
+	if errors.IsError(err) {
+		return err
+	}
+	if extras.FramesCount == 0 {
+		return errors.New("Error parsing file")
+	}
+	return nil
 }

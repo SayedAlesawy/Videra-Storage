@@ -47,7 +47,7 @@ else:
 metadata = {
     "height":int(height),
     "width":int(width),
-    "framesCount":int(frames_count),
+    "frames_count":int(frames_count),
     "fps":fps,
     "duration":duration
 }

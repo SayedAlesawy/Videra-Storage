@@ -17,6 +17,8 @@ type DataNodeconfig struct {
 	InternalReqTimeout           int    //Timeout for internal requests
 	MaxRequestSize               int64  //Maximum acceptable size of body size
 	RejoinClusterInterval        int    //Freqency of retrying the join cluster request
+	MetadataCommand              string //Command for running script to fetch video metadata
+	MetadataScriptPath           string //Path to fetch metadata script
 }
 
 // dataNodeConfigOnce Used to garauntee thread safety for singleton instances
@@ -41,6 +43,8 @@ func (manager *ConfigurationManager) DataNodeConfig() *DataNodeconfig {
 			InternalReqTimeout:           int(envInt("INTERNAL_REQ_TIMEOUT", "5")),
 			MaxRequestSize:               envInt("MAX_REQUEST_SIZE", "4194304"),
 			RejoinClusterInterval:        int(envInt("REJOIN_CLUSTER_INTERVAL", "2")),
+			MetadataCommand:              envString("METADATA_COMMAND", "/usr/bin/python3"),
+			MetadataScriptPath:           envString("METADATA_SCRIPT", "../../scripts/fetch_metadata.py"),
 		}
 
 		dataNodeConfigInstance = &dataNodeConfig

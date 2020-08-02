@@ -13,7 +13,7 @@ type File struct {
 	Name        string     //Name of file
 	Type        string     //ndicates type of file (video, model .... etc)
 	Path        string     //Path to file (excluding file name)
-	Extras      string     //Extras json field for any extra info
+	Extras      string     `gorm:"size:500"` //Extras json field for any extra info
 	DataNodeID  string     //ID of the data node that has the file
 	Parent      string     //Token of the parent file in case it's a replica
 	Offset      int64      //Offset of bytes to start writing data at

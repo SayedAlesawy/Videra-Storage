@@ -20,10 +20,10 @@ func (server *Server) SearchRequestHandler(w http.ResponseWriter, r *http.Reques
 
 	w.Header().Set("content-type", "application/json")
 
-	expectedHeaders := []string{"Tag"}
-	optionalHeaders := []string{"StartTime", "EndTime"}
+	expectedParams := []string{"tag"}
+	optionalParams := []string{"start", "end"}
 
-	err := requests.ValidateUploadHeaders(&r.Header, expectedHeaders...)
+	err := requests.ValidateQuery(r.URL.Query(), expectedParams...)
 	if errors.IsError(err) {
 		log.Println(scLogPrefix, r.RemoteAddr, err)
 		requests.HandleRequestError(w, http.StatusBadRequest, err.Error())
@@ -33,12 +33,12 @@ func (server *Server) SearchRequestHandler(w http.ResponseWriter, r *http.Reques
 
 	var clips []namenode.Clip
 
-	tag := r.Header.Get("Tag")
+	tag := r.URL.Query().Get("tag")
 
-	err = requests.ValidateUploadHeaders(&r.Header, optionalHeaders...)
+	err = requests.ValidateQuery(r.URL.Query(), optionalParams...)
 	if !errors.IsError(err) {
-		start, startErr := strconv.ParseUint(r.Header.Get("StartTime"), 10, 64)
-		end, endErr := strconv.ParseUint(r.Header.Get("EndTime"), 10, 64)
+		start, startErr := strconv.ParseUint(r.URL.Query().Get("start"), 10, 64)
+		end, endErr := strconv.ParseUint(r.URL.Query().Get("end"), 10, 64)
 
 		if errors.IsError(startErr) || errors.IsError(endErr) {
 			log.Println(scLogPrefix, r.RemoteAddr, "Error while parsing start or end times")

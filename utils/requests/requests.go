@@ -16,8 +16,8 @@ func HandleRequestError(w http.ResponseWriter, statusCode int, message string) {
 	fmt.Fprintf(w, FormatMessage("error", message))
 }
 
-// ValidateUploadHeaders is a function to check existance of parameters inside header
-func ValidateUploadHeaders(h *http.Header, params ...string) error {
+// ValidateHeaders is a function to check existance of parameters inside header
+func ValidateHeaders(h *http.Header, params ...string) error {
 	for _, param := range params {
 		if h.Get(param) == "" {
 			return errors.New(fmt.Sprintf("%s header not provided", param))

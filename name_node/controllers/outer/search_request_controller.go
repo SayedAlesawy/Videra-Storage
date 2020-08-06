@@ -14,16 +14,23 @@ import (
 
 var scLogPrefix = "[Search-Controller]"
 
+// searchResult Represents the result payload of the search endpoint
+type searchResult struct {
+	Tag   string `json:"tag"`
+	Start uint64 `json:"start"`
+	End   uint64 `json:"end"`
+}
+
 // SearchRequestHandler Handles client's search request
 func (server *Server) SearchRequestHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	log.Println(scLogPrefix, "Received search request")
 
 	w.Header().Set("content-type", "application/json")
 
-	expectedHeaders := []string{"Tag"}
-	optionalHeaders := []string{"StartTime", "EndTime"}
+	expectedParams := []string{"tag"}
+	optionalParams := []string{"start", "end"}
 
-	err := requests.ValidateUploadHeaders(&r.Header, expectedHeaders...)
+	err := requests.ValidateQuery(r.URL.Query(), expectedParams...)
 	if errors.IsError(err) {
 		log.Println(scLogPrefix, r.RemoteAddr, err)
 		requests.HandleRequestError(w, http.StatusBadRequest, err.Error())
@@ -33,12 +40,12 @@ func (server *Server) SearchRequestHandler(w http.ResponseWriter, r *http.Reques
 
 	var clips []namenode.Clip
 
-	tag := r.Header.Get("Tag")
+	tag := r.URL.Query().Get("tag")
 
-	err = requests.ValidateUploadHeaders(&r.Header, optionalHeaders...)
+	err = requests.ValidateQuery(r.URL.Query(), optionalParams...)
 	if !errors.IsError(err) {
-		start, startErr := strconv.ParseUint(r.Header.Get("StartTime"), 10, 64)
-		end, endErr := strconv.ParseUint(r.Header.Get("EndTime"), 10, 64)
+		start, startErr := strconv.ParseUint(r.URL.Query().Get("start"), 10, 64)
+		end, endErr := strconv.ParseUint(r.URL.Query().Get("end"), 10, 64)
 
 		if errors.IsError(startErr) || errors.IsError(endErr) {
 			log.Println(scLogPrefix, r.RemoteAddr, "Error while parsing start or end times")
@@ -59,7 +66,7 @@ func (server *Server) SearchRequestHandler(w http.ResponseWriter, r *http.Reques
 		clips = retrieveClips(tag)
 	}
 
-	resp, err := json.Marshal(clips)
+	resp, err := json.Marshal(decorate(clips))
 	if errors.IsError(err) {
 		log.Println(scLogPrefix, r.RemoteAddr, err)
 		requests.HandleRequestError(w, http.StatusInternalServerError, err.Error())
@@ -77,9 +84,20 @@ func retrieveClips(params ...interface{}) []namenode.Clip {
 	if len(params) == 1 {
 		namenode.NodeInstance().DB.Connection.Where("tag = ?", params[0]).Find(&clips)
 	} else {
-		namenode.NodeInstance().DB.Connection.Where("tag = ? and start_time >= ? and end_time <= ?",
+		namenode.NodeInstance().DB.Connection.Where("tag = ? and start_time >= ? and start_time <= ?",
 			params[0], params[1], params[2]).Find(&clips)
 	}
 
 	return clips
+}
+
+// decorate A function to decorate the search result for web
+func decorate(clips []namenode.Clip) []searchResult {
+	var result []searchResult
+
+	for _, clip := range clips {
+		result = append(result, searchResult{Tag: clip.Tag, Start: clip.StartTime, End: clip.EndTime})
+	}
+
+	return result
 }

@@ -3,6 +3,7 @@ package requests
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/SayedAlesawy/Videra-Storage/utils/errors"
 )
@@ -16,11 +17,22 @@ func HandleRequestError(w http.ResponseWriter, statusCode int, message string) {
 	fmt.Fprintf(w, FormatMessage("error", message))
 }
 
-// ValidateUploadHeaders is a function to check existance of parameters inside header
-func ValidateUploadHeaders(h *http.Header, params ...string) error {
+// ValidateHeaders is a function to check existance of parameters inside header
+func ValidateHeaders(h *http.Header, params ...string) error {
 	for _, param := range params {
 		if h.Get(param) == "" {
 			return errors.New(fmt.Sprintf("%s header not provided", param))
+		}
+	}
+
+	return nil
+}
+
+// ValidateQuery A function to validate the existence of params inside the query string
+func ValidateQuery(query url.Values, params ...string) error {
+	for _, param := range params {
+		if query.Get(param) == "" {
+			return errors.New(fmt.Sprintf("%s query param not provided", param))
 		}
 	}
 

@@ -46,7 +46,7 @@ func (server *Server) handleInitialUpload(w http.ResponseWriter, r *http.Request
 	log.Println(ucLogPrefix, r.RemoteAddr, "Received init request")
 
 	expectedHeaders := []string{"Filename", "Filesize", "Filetype"}
-	err := validateUploadHeaders(&r.Header, expectedHeaders...)
+	err := requests.ValidateHeaders(&r.Header, expectedHeaders...)
 
 	if err != nil {
 		log.Println(ucLogPrefix, r.RemoteAddr, err)
@@ -72,7 +72,7 @@ func (server *Server) handleInitialUpload(w http.ResponseWriter, r *http.Request
 // handleModelInitialUpload is responsible for handling upload request for model file
 func (server *Server) handleModelInitialUpload(w http.ResponseWriter, r *http.Request) {
 	expectedHeaders := []string{"Model-Size", "Config-Size", "Code-Size"}
-	err := validateUploadHeaders(&r.Header, expectedHeaders...)
+	err := requests.ValidateHeaders(&r.Header, expectedHeaders...)
 	if err != nil {
 		log.Println(ucLogPrefix, r.RemoteAddr, err)
 		handleRequestError(w, http.StatusBadRequest, err.Error())
@@ -286,7 +286,7 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
 	expectedHeaders := []string{"Offset", "ID"}
-	err := requests.ValidateUploadHeaders(&r.Header, expectedHeaders...)
+	err := requests.ValidateHeaders(&r.Header, expectedHeaders...)
 	if err != nil {
 		log.Println(ucLogPrefix, r.RemoteAddr, err)
 		requests.HandleRequestError(w, http.StatusBadRequest, err.Error())

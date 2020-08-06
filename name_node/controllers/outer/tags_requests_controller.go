@@ -15,7 +15,7 @@ var tagsLogPrefix = "[Tags-Controller]"
 
 // tagResponse Represents the tags response
 type tagResponse struct {
-	Tag string `json:"tag"`
+	Tag string
 }
 
 // TagsRequestHandler Handles the dashboard tags request
@@ -26,7 +26,7 @@ func (server *Server) TagsRequestHandler(w http.ResponseWriter, r *http.Request,
 
 	tags := retrieveTags()
 
-	resp, err := json.Marshal(tags)
+	resp, err := json.Marshal(decorateTags(tags))
 	if errors.IsError(err) {
 		log.Println(scLogPrefix, r.RemoteAddr, err)
 		requests.HandleRequestError(w, http.StatusInternalServerError, err.Error())
@@ -44,4 +44,15 @@ func retrieveTags() []tagResponse {
 	namenode.NodeInstance().DB.Connection.Raw("select distinct(tag) from clips").Scan(&tags)
 
 	return tags
+}
+
+// decorateTags A function to decorate tags before returning to web
+func decorateTags(tags []tagResponse) []string {
+	var result []string
+
+	for _, tag := range tags {
+		result = append(result, tag.Tag)
+	}
+
+	return result
 }

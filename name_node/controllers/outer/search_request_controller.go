@@ -66,7 +66,7 @@ func (server *Server) SearchRequestHandler(w http.ResponseWriter, r *http.Reques
 		clips = retrieveClips(tag)
 	}
 
-	resp, err := json.Marshal(decorate(clips))
+	resp, err := json.Marshal(decorateClips(clips))
 	if errors.IsError(err) {
 		log.Println(scLogPrefix, r.RemoteAddr, err)
 		requests.HandleRequestError(w, http.StatusInternalServerError, err.Error())
@@ -92,7 +92,7 @@ func retrieveClips(params ...interface{}) []namenode.Clip {
 }
 
 // decorate A function to decorate the search result for web
-func decorate(clips []namenode.Clip) []searchResult {
+func decorateClips(clips []namenode.Clip) []searchResult {
 	var result []searchResult
 
 	for _, clip := range clips {

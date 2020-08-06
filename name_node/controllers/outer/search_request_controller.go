@@ -77,7 +77,7 @@ func retrieveClips(params ...interface{}) []namenode.Clip {
 	if len(params) == 1 {
 		namenode.NodeInstance().DB.Connection.Where("tag = ?", params[0]).Find(&clips)
 	} else {
-		namenode.NodeInstance().DB.Connection.Where("tag = ? and start_time >= ? and end_time <= ?",
+		namenode.NodeInstance().DB.Connection.Where("tag = ? and start_time >= ? and start_time <= ?",
 			params[0], params[1], params[2]).Find(&clips)
 	}
 

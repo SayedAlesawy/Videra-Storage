@@ -396,9 +396,16 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 	}
 
 	if fileInfo.Offset == fileInfo.Size {
+		if fileInfo.Type == datanode.VideoFileType {
+			if server.isReplica(fileInfo) {
+				go startJob(fileInfo)
+			}
+		}
+
 		log.Println(ucLogPrefix, r.RemoteAddr, fmt.Sprintf("File %s was uploaded successfully!", filePath))
 		w.WriteHeader(http.StatusCreated)
 	}
+
 }
 
 // validateFileOffset A function validate file offset
@@ -411,6 +418,13 @@ func (server *Server) validateFileOffset(fileinfo datanode.File, offset int64, c
 		return true
 	}
 
+	return false
+}
+
+func (server *Server) isReplica(fileInfo datanode.File) bool {
+	if fileInfo.Token == fileInfo.Parent {
+		return true
+	}
 	return false
 }
 

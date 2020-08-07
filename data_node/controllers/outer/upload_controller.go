@@ -397,7 +397,7 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 
 	if fileInfo.Offset == fileInfo.Size {
 		if fileInfo.Type == datanode.VideoFileType {
-			if server.isReplica(fileInfo) {
+			if !server.isReplica(fileInfo) {
 				go startJob(fileInfo)
 			}
 		}
@@ -423,9 +423,9 @@ func (server *Server) validateFileOffset(fileinfo datanode.File, offset int64, c
 
 func (server *Server) isReplica(fileInfo datanode.File) bool {
 	if fileInfo.Token == fileInfo.Parent {
-		return true
+		return false
 	}
-	return false
+	return true
 }
 
 // isFileComplete A function to check if file upload was completed previously

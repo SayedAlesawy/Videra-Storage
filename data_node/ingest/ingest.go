@@ -6,7 +6,6 @@ import (
 	"log"
 	"os/exec"
 	"path"
-	"strings"
 
 	"github.com/SayedAlesawy/Videra-Storage/config"
 	datanode "github.com/SayedAlesawy/Videra-Storage/data_node"
@@ -32,27 +31,27 @@ func StartJob(videoInfo datanode.File) {
 
 // executeJob starts command for starting ingestion
 func executeJob(videoPath string, modelPath string, configPath string, codePath string, groupID string, startIndex int, framesCount int) {
-	command := "make"
+	command := "./ingestion-engine.bin"
 	args := prepareArgs(videoPath, modelPath, configPath, codePath, groupID, startIndex, framesCount)
-	fmt.Println(args)
-	cmd := exec.Command(command, args)
+	cmd := exec.Command(command, args...)
 	cmd.Dir = config.ConfigurationManagerInstance("").DataNodeConfig().IngestionModulePath
 	err := cmd.Start()
 	if errors.IsError(err) {
 		log.Println(jobExecutionLoggerPrefix, err)
+		return
 	}
+	log.Println(jobExecutionLoggerPrefix, fmt.Sprintf("Process with PID: %d started successfully", cmd.Process.Pid))
 }
 
-func prepareArgs(videoPath string, modelPath string, configPath string, codePath string, groupID string, startIndex int, frameCount int) string {
+func prepareArgs(videoPath string, modelPath string, configPath string, codePath string, groupID string, startIndex int, frameCount int) []string {
 	codeFolder, _ := path.Split(codePath)
-	execGroupArg := fmt.Sprintf("execution-group-id=%s", groupID)
-	videoPathArg := fmt.Sprintf("video-path=%s", videoPath)
-	modelPathArg := fmt.Sprintf("model-path=%s", modelPath)
-	configPathArg := fmt.Sprintf("model-config-path=%s", configPath)
-	codePathArg := fmt.Sprintf("code-path=%s", codeFolder)
-	startIndexArg := fmt.Sprintf("start-idx=%d", startIndex)
-	frameCountArg := fmt.Sprintf("frame-count=%d", frameCount)
-	runCommand := "run"
-	args := []string{execGroupArg, videoPathArg, modelPathArg, configPathArg, codePathArg, startIndexArg, frameCountArg, runCommand}
-	return strings.Join(args, " ")
+	execGroupArg := fmt.Sprintf("-execution-group-id=%s", groupID)
+	videoPathArg := fmt.Sprintf("-video-path=%s", videoPath)
+	modelPathArg := fmt.Sprintf("-model-path=%s", modelPath)
+	configPathArg := fmt.Sprintf("-model-config-path=%s", configPath)
+	codePathArg := fmt.Sprintf("-code-path=%s", codeFolder)
+	startIndexArg := fmt.Sprintf("-start-idx=%d", startIndex)
+	frameCountArg := fmt.Sprintf("-frame-count=%d", frameCount)
+	args := []string{execGroupArg, videoPathArg, modelPathArg, configPathArg, codePathArg, startIndexArg, frameCountArg}
+	return args
 }

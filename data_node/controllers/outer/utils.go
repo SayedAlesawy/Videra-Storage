@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	datanode "github.com/SayedAlesawy/Videra-Storage/data_node"
 	"github.com/SayedAlesawy/Videra-Storage/utils/errors"
 )
 
@@ -33,4 +34,12 @@ func isValideSize(param string) error {
 	}
 
 	return nil
+}
+
+// isReplica checks if the given file is an original file or replica
+func isReplica(fileInfo datanode.File) bool {
+	if fileInfo.Token == fileInfo.Parent {
+		return false
+	}
+	return true
 }

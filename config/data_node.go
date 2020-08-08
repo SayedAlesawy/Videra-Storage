@@ -19,7 +19,6 @@ type DataNodeconfig struct {
 	RejoinClusterInterval        int    //Freqency of retrying the join cluster request
 	MetadataCommand              string //Command for running script to fetch video metadata
 	MetadataScriptPath           string //Path to fetch metadata script
-	IngestionModuleCommand       string //Command to run Ingestion Module
 	IngestionModulePath          string //Path to ingestion module to execute jobs
 }
 
@@ -47,7 +46,6 @@ func (manager *ConfigurationManager) DataNodeConfig() *DataNodeconfig {
 			RejoinClusterInterval:        int(envInt("REJOIN_CLUSTER_INTERVAL", "2")),
 			MetadataCommand:              envString("METADATA_COMMAND", "/usr/bin/python3"),
 			MetadataScriptPath:           envString("METADATA_SCRIPT", "../../scripts/fetch_metadata.py"),
-			IngestionModuleCommand:       envString("INGESTION_MODULE_COMMAND", "make"),
 			IngestionModulePath:          envString("INGESTION_MODULE_PATH", "/home/ahmed/Downloads/Videra-Ingestion/orchestrator"),
 		}
 

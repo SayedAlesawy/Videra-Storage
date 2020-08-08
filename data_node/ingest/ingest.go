@@ -1,10 +1,11 @@
-package outer
+package ingest
 
 import (
 	"encoding/json"
 	"fmt"
 	"log"
 	"os/exec"
+	"path"
 	"strings"
 
 	"github.com/SayedAlesawy/Videra-Storage/config"
@@ -14,7 +15,8 @@ import (
 
 var jobExecutionLoggerPrefix = "[Job-Execution]"
 
-func startJob(videoInfo datanode.File) {
+// StartJob starts ingesting file to ingestion module
+func StartJob(videoInfo datanode.File) {
 
 	var metadata datanode.VideoMetadata
 	json.Unmarshal([]byte(videoInfo.Extras), &metadata)
@@ -28,9 +30,11 @@ func startJob(videoInfo datanode.File) {
 	executeJob(videoInfo.Path, modelInfo.Path, modelExtras.AssociatedConfigPath, modelExtras.AssociatedCodePath, modelInfo.Token, 0, metadata.FramesCount)
 }
 
+// executeJob starts command for starting ingestion
 func executeJob(videoPath string, modelPath string, configPath string, codePath string, groupID string, startIndex int, framesCount int) {
-	command := config.ConfigurationManagerInstance("").DataNodeConfig().IngestionModuleCommand
+	command := "make"
 	args := prepareArgs(videoPath, modelPath, configPath, codePath, groupID, startIndex, framesCount)
+	fmt.Println(args)
 	cmd := exec.Command(command, args)
 	cmd.Dir = config.ConfigurationManagerInstance("").DataNodeConfig().IngestionModulePath
 	err := cmd.Run()
@@ -40,13 +44,15 @@ func executeJob(videoPath string, modelPath string, configPath string, codePath 
 }
 
 func prepareArgs(videoPath string, modelPath string, configPath string, codePath string, groupID string, startIndex int, frameCount int) string {
+	codeFolder, _ := path.Split(codePath)
 	execGroupArg := fmt.Sprintf("execution-group-id=%s", groupID)
 	videoPathArg := fmt.Sprintf("video-path=%s", videoPath)
 	modelPathArg := fmt.Sprintf("model-path=%s", modelPath)
 	configPathArg := fmt.Sprintf("model-config-path=%s", configPath)
+	codePathArg := fmt.Sprintf("code-path=%s", codeFolder)
 	startIndexArg := fmt.Sprintf("start-idx=%d", startIndex)
 	frameCountArg := fmt.Sprintf("frame-count=%d", frameCount)
 	runCommand := "run"
-	args := []string{execGroupArg, videoPathArg, modelPathArg, configPathArg, startIndexArg, frameCountArg, runCommand}
+	args := []string{execGroupArg, videoPathArg, modelPathArg, configPathArg, codePathArg, startIndexArg, frameCountArg, runCommand}
 	return strings.Join(args, " ")
 }

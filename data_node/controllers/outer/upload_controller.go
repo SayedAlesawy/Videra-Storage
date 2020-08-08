@@ -15,6 +15,7 @@ import (
 
 	"github.com/SayedAlesawy/Videra-Storage/config"
 	datanode "github.com/SayedAlesawy/Videra-Storage/data_node"
+	"github.com/SayedAlesawy/Videra-Storage/data_node/ingest"
 	"github.com/SayedAlesawy/Videra-Storage/utils/errors"
 	"github.com/SayedAlesawy/Videra-Storage/utils/requests"
 	"github.com/julienschmidt/httprouter"
@@ -100,7 +101,7 @@ func (server *Server) handleModelInitialUpload(w http.ResponseWriter, r *http.Re
 
 	modelPath := path.Join(folderpath, filename)
 	configPath := path.Join(folderpath, fmt.Sprintf("%s_config.conf", id))
-	codePath := path.Join(folderpath, fmt.Sprintf("%s_code.py", id))
+	codePath := path.Join(folderpath, "code_file.py")
 
 	log.Println(ucLogPrefix, r.RemoteAddr, "creating file with id", id)
 	err = datanode.CreateFileDirectory(folderpath, 0744)
@@ -397,8 +398,8 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 
 	if fileInfo.Offset == fileInfo.Size {
 		if fileInfo.Type == datanode.VideoFileType {
-			if !server.isReplica(fileInfo) {
-				go startJob(fileInfo)
+			if !isReplica(fileInfo) {
+				go ingest.StartJob(fileInfo)
 			}
 		}
 
@@ -419,13 +420,6 @@ func (server *Server) validateFileOffset(fileinfo datanode.File, offset int64, c
 	}
 
 	return false
-}
-
-func (server *Server) isReplica(fileInfo datanode.File) bool {
-	if fileInfo.Token == fileInfo.Parent {
-		return false
-	}
-	return true
 }
 
 // isFileComplete A function to check if file upload was completed previously

@@ -19,6 +19,7 @@ type DataNodeconfig struct {
 	RejoinClusterInterval        int    //Freqency of retrying the join cluster request
 	MetadataCommand              string //Command for running script to fetch video metadata
 	MetadataScriptPath           string //Path to fetch metadata script
+	IngestionModulePath          string //Path to ingestion module to execute jobs
 }
 
 // dataNodeConfigOnce Used to garauntee thread safety for singleton instances
@@ -45,6 +46,7 @@ func (manager *ConfigurationManager) DataNodeConfig() *DataNodeconfig {
 			RejoinClusterInterval:        int(envInt("REJOIN_CLUSTER_INTERVAL", "2")),
 			MetadataCommand:              envString("METADATA_COMMAND", "/usr/bin/python3"),
 			MetadataScriptPath:           envString("METADATA_SCRIPT", "../../scripts/fetch_metadata.py"),
+			IngestionModulePath:          envString("INGESTION_MODULE_PATH", "/home/ahmed/Downloads/Videra-Ingestion/orchestrator"),
 		}
 
 		dataNodeConfigInstance = &dataNodeConfig

@@ -37,7 +37,7 @@ func executeJob(videoPath string, modelPath string, configPath string, codePath 
 	fmt.Println(args)
 	cmd := exec.Command(command, args)
 	cmd.Dir = config.ConfigurationManagerInstance("").DataNodeConfig().IngestionModulePath
-	err := cmd.Run()
+	err := cmd.Start()
 	if errors.IsError(err) {
 		log.Println(jobExecutionLoggerPrefix, err)
 	}

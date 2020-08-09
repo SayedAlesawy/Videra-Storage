@@ -13,6 +13,7 @@ type DataNodeconfig struct {
 	NameNodeInternalRequestsPort string //The internal requests port of the name node
 	Port                         string //Port to listen to requests
 	NetworkProtocol              string //Network protocol used by the data node
+	NameNodeReplicationURL       string //URL to request datanodes for replication
 	StorageDBName                string //Storage database name
 	InternalReqTimeout           int    //Timeout for internal requests
 	MaxRequestSize               int64  //Maximum acceptable size of body size
@@ -39,6 +40,7 @@ func (manager *ConfigurationManager) DataNodeConfig() *DataNodeconfig {
 			InternalRequestsPort:         envString("INTERNAL_REQ_PORT", "6000"),
 			NameNodeInternalRequestsPort: envString("NAME_NODE_INTERNAL_REQ_PORT", "7000"),
 			Port:                         envString("PORT", "8080"),
+			NameNodeReplicationURL:       envString("NAME_NODE_REPLICATION_URL", "http://localhost:8080/replication"),
 			NetworkProtocol:              envString("NET_PROTOCOL", "tcp"),
 			StorageDBName:                envString("STO_DB_NAME", "videra_storage"),
 			InternalReqTimeout:           int(envInt("INTERNAL_REQ_TIMEOUT", "5")),

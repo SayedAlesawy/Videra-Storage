@@ -1,6 +1,7 @@
 package outer
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -16,6 +17,7 @@ import (
 	"github.com/SayedAlesawy/Videra-Storage/config"
 	datanode "github.com/SayedAlesawy/Videra-Storage/data_node"
 	"github.com/SayedAlesawy/Videra-Storage/data_node/ingest"
+	"github.com/SayedAlesawy/Videra-Storage/data_node/replication"
 	"github.com/SayedAlesawy/Videra-Storage/utils/errors"
 	"github.com/SayedAlesawy/Videra-Storage/utils/requests"
 	"github.com/julienschmidt/httprouter"
@@ -140,6 +142,11 @@ func (server *Server) handleModelInitialUpload(w http.ResponseWriter, r *http.Re
 		AssociatedCodeSize:   codeSize,
 	}
 
+	parentID := id
+	if r.Header.Get("Parent") != "" {
+		parentID = r.Header.Get("Parent")
+	}
+
 	extrasBytes, _ := json.Marshal(extras)
 	//Insert a file info record in the database
 	err = datanode.NodeInstance().DB.Connection.Create(&datanode.File{
@@ -150,6 +157,7 @@ func (server *Server) handleModelInitialUpload(w http.ResponseWriter, r *http.Re
 		Extras:     string(extrasBytes),
 		Size:       filesize,
 		DataNodeID: datanode.NodeInstance().ID,
+		Parent:     parentID,
 		Offset:     0,
 	}).Error
 	if errors.IsError(err) {
@@ -196,7 +204,7 @@ func (server *Server) handleVideoInitialUpload(w http.ResponseWriter, r *http.Re
 		requests.HandleRequestError(w, http.StatusBadRequest, "Associated Model ID not provided")
 		return
 	}
-	notFound := datanode.NodeInstance().DB.Connection.Where("token = ?", associatedModelID).RecordNotFound()
+	notFound := datanode.NodeInstance().DB.Connection.Where("parent = ?", associatedModelID).RecordNotFound()
 	if notFound {
 		log.Println(ucLogPrefix, r.RemoteAddr, fmt.Sprintf("Model with token: %s is not found", associatedModelID))
 		requests.HandleRequestError(w, http.StatusNotFound, fmt.Sprintf("Record with token: %s is not found", associatedModelID))
@@ -241,6 +249,12 @@ func (server *Server) handleVideoInitialUpload(w http.ResponseWriter, r *http.Re
 		requests.HandleRequestError(w, http.StatusInternalServerError, "Internal server error")
 		return
 	}
+
+	parentID := id
+	if r.Header.Get("Parent") != "" {
+		parentID = r.Header.Get("Parent")
+	}
+
 	//Insert a file info record in the database
 	err = datanode.NodeInstance().DB.Connection.Create(&datanode.File{
 		Token:      id,
@@ -250,7 +264,7 @@ func (server *Server) handleVideoInitialUpload(w http.ResponseWriter, r *http.Re
 		Size:       filesize,
 		Extras:     string(metadataJSON),
 		DataNodeID: datanode.NodeInstance().ID,
-		Parent:     id,
+		Parent:     parentID,
 		Offset:     0,
 	}).Error
 	if errors.IsError(err) {
@@ -261,6 +275,11 @@ func (server *Server) handleVideoInitialUpload(w http.ResponseWriter, r *http.Re
 
 	maxRequestSize := config.ConfigurationManagerInstance("").DataNodeConfig().MaxRequestSize
 
+	// original node
+	if parentID == id {
+		log.Println("Send replicated init")
+		replication.ReplicateVideo(r, id)
+	}
 	w.Header().Set("ID", id)
 	w.Header().Set("Max-Request-Size", fmt.Sprintf("%d", maxRequestSize))
 	w.WriteHeader(http.StatusCreated)
@@ -271,6 +290,7 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 	log.Println(ucLogPrefix, r.RemoteAddr, "Received APPEND request")
 	// Content length not provided
 	if r.ContentLength <= 0 {
+		log.Println(r.Header)
 		log.Println(ucLogPrefix, r.RemoteAddr, "Content-Length header not provided")
 		requests.HandleRequestError(w, http.StatusBadRequest, "Content-Length header not provided")
 		return
@@ -396,10 +416,17 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	if fileInfo.Type == datanode.VideoFileType && !isReplica(fileInfo) {
+		r.Body = ioutil.NopCloser(bytes.NewReader(body))
+		replication.ReplicateVideo(r, id)
+	}
+
 	if fileInfo.Offset == fileInfo.Size {
 		if fileInfo.Type == datanode.VideoFileType {
 			if !isReplica(fileInfo) {
 				go ingest.StartJob(fileInfo)
+			} else {
+				log.Println("Replication done")
 			}
 		}
 

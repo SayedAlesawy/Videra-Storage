@@ -2,6 +2,7 @@ package replication
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/SayedAlesawy/Videra-Storage/config"
+	datanode "github.com/SayedAlesawy/Videra-Storage/data_node"
 	"github.com/hashicorp/go-retryablehttp"
 )
 
@@ -29,9 +31,6 @@ type Replica struct {
 	ID  string //File ID to append to
 }
 
-// TODO remove this
-var rr = Replica{}
-
 // newClient is a function that returns customized http client
 func newClient(maxRetries int, waitingTime int) *http.Client {
 	clientretry := retryablehttp.NewClient()
@@ -43,64 +42,116 @@ func newClient(maxRetries int, waitingTime int) *http.Client {
 }
 
 // ReplicateVideo is responsible for replicating video to other data nodes
-func ReplicateVideo(r *http.Request, token string) {
+func ReplicateVideo(r *http.Request, token string) error {
 	reqType := strings.ToLower(r.Header.Get("Request-Type"))
 
 	switch reqType {
 	case "init":
-		replicateInitialRequest(r, token)
+		err := replicateInitialRequest(r, token)
+		return err
 	case "append":
-		replicateAppendRequest(r, token)
+		err := replicateAppendRequest(r, token)
+		return err
 	default:
 		log.Println("Undefined req")
+		return errors.New("Undefined request")
 	}
 }
 
-func replicateInitialRequest(r *http.Request, token string) {
-	replicationNode := getReplicationNode(token)
+func replicateInitialRequest(r *http.Request, token string) error {
+	replicationNode, err := getReplicationNode(token)
+	if err != nil {
+		return err
+	}
 	fmt.Println(replicationLogPrefix, "Sending initial replicate request to ", replicationNode.URL)
+
 	client := newClient(retries, waitingTime)
 	req, _ := http.NewRequest(http.MethodPost, replicationNode.URL, nil)
 	req.Header = r.Header.Clone()
 	req.Header.Set("Parent", token)
-	res, _ := client.Do(req)
+	res, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	if res.StatusCode != http.StatusCreated {
+		return errors.New("Initial replicate request denied")
+	}
 	fileID := res.Header.Get("ID")
-	updateReplicaID(token, fileID)
+	updateReplicaID(replicationNode, token, fileID)
+	return nil
 }
 
-func replicateAppendRequest(r *http.Request, token string) {
-	replicationNode := getReplicationNode(token)
+func replicateAppendRequest(r *http.Request, token string) error {
+	replicationNode, err := getReplicationNode(token)
+	if err != nil {
+		return err
+	}
 	client := newClient(retries, waitingTime)
 	// for some reason, I can't pass old request body to new request
 	// I have to recreate new body
-	content, _ := ioutil.ReadAll(r.Body)
+	content, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return err
+	}
+
 	body := bytes.NewReader(content)
 
 	req, _ := http.NewRequest(http.MethodPost, replicationNode.URL, body)
 	req.Header = r.Header.Clone()
 	req.Header.Set("ID", replicationNode.ID)
 
-	_, _ = client.Do(req)
+	res, err := client.Do(req)
+	if err != nil {
+		deleteWithHash(getReplicaKey(token))
+		return err
+	}
+
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+		return errors.New("Replication request denied")
+	}
+	// Replication is finished
+	if res.StatusCode == http.StatusCreated {
+		deleteWithHash(getReplicaKey(token))
+	}
+	return nil
 }
 
-func getReplicationNode(token string) Replica {
-	// key := getReplicaKey(token)
-	// retrieve replica from redis using key
-	// if not exist, request from name node and set in redis
+func getReplicationNode(token string) (Replica, error) {
+	key := getReplicaKey(token)
+	node, _ := getFromHash(key, token)
 
-	// TODO: Remove this
-	if rr.URL == "" {
-		url, _ := getAvailableNode()
-		rr.URL = url
+	replica := Replica{}
+
+	// not exist in cache
+	if node == "" {
+		url, err := getAvailableNode()
+		if err != nil {
+			return replica, err
+		}
+		replica.URL = url
+		replicaJSON, err := encodeReplicaNode(replica)
+		if err != nil {
+			return replica, err
+		}
+		insertIntoHash(key, token, replicaJSON)
+		log.Println(replicationLogPrefix, "Replica not exist in cache, now is set to URL: ", url)
+	} else {
+		decodedReplica, err := decodeReplicaNodeData(node)
+		if err != nil {
+			return replica, err
+		}
+		replica = decodedReplica
 	}
-	////////////////////////
-	return rr
+
+	return replica, nil
 }
 
 func getAvailableNode() (string, error) {
 	dataNodeConfig := config.ConfigurationManagerInstance("").DataNodeConfig()
 	client := newClient(retries, waitingTime)
-	req, _ := http.NewRequest(http.MethodGet, dataNodeConfig.NameNodeReplicationURL, nil)
+	nodeID := bytes.NewReader(([]byte(dataNodeConfig.ID)))
+	req, _ := http.NewRequest(http.MethodGet, dataNodeConfig.NameNodeReplicationURL, nodeID)
 	res, err := client.Do(req)
 	if err != nil {
 		log.Println(err)
@@ -125,14 +176,61 @@ func getAvailableNode() (string, error) {
 	return body, nil
 }
 
-func getReplicaKey(token string) string {
-	return fmt.Sprintf("replica-%s", token)
+func updateReplicaID(replica Replica, token string, fileID string) error {
+	key := getReplicaKey(token)
+	field := token
+	replica.ID = fileID
+	replicaJSON, err := encodeReplicaNode(replica)
+	if err != nil {
+		return err
+	}
+
+	err = insertIntoHash(key, field, replicaJSON)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func updateReplicaID(token string, fileID string) {
+// insertIntoHash A function to insert a new entry in a redis hash
+func insertIntoHash(key string, field string, value string) error {
+	return datanode.NodeInstance().Cache.HSet(key, field, value).Err()
+}
 
-	// key := getReplicaKey(token)
-	// retrieve replica from redis using key
-	// Update ID in replica to fileID
-	rr.ID = fileID
+// deleteWithHash A function to delete a certain field in redis hash
+func deleteWithHash(key string) error {
+	log.Println(key)
+	return datanode.NodeInstance().Cache.Del(key).Err()
+}
+
+// getFromHash A function to field from a redis hash
+func getFromHash(key string, field string) (string, error) {
+	return datanode.NodeInstance().Cache.HGet(key, field).Result()
+}
+
+// encode A function to encode the data node data into json format
+func encodeReplicaNode(replica Replica) (string, error) {
+	encodedData, err := json.Marshal(replica)
+	if err != nil {
+		return "", err
+	}
+
+	return string(encodedData), nil
+}
+
+// decodeReplicaNodeData Decodes the stringified data node data
+func decodeReplicaNodeData(encodedData string) (Replica, error) {
+	var dataNodeData Replica
+
+	err := json.Unmarshal([]byte(encodedData), &dataNodeData)
+	if err != nil {
+		return Replica{}, err
+	}
+
+	return dataNodeData, nil
+}
+
+func getReplicaKey(token string) string {
+	return fmt.Sprintf("replica-%s", token)
 }

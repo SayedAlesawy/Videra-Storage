@@ -1,11 +1,14 @@
 package datanode
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/SayedAlesawy/Videra-Storage/config"
+	"github.com/SayedAlesawy/Videra-Storage/drivers/redis"
 	"github.com/SayedAlesawy/Videra-Storage/utils/database"
+	"github.com/SayedAlesawy/Videra-Storage/utils/errors"
 )
 
 // logPrefix Used for hierarchical logging
@@ -19,7 +22,10 @@ var dataNodeInstance *DataNode
 
 // NodeInstance A function to return a singleton data node instance
 func NodeInstance() *DataNode {
-	dataNodeConfig := config.ConfigurationManagerInstance("").DataNodeConfig()
+	configManager := config.ConfigurationManagerInstance("")
+	dataNodeConfig := configManager.DataNodeConfig()
+	cacheInstance, err := redis.Instance(configManager.RedisConfig())
+	errors.HandleError(err, fmt.Sprintf("%s Unable to connect to caching layer", logPrefix), true)
 
 	dataNodeOnce.Do(func() {
 		dataNode := DataNode{
@@ -33,7 +39,8 @@ func NodeInstance() *DataNode {
 				IP:   dataNodeConfig.NameNodeIP,
 				Port: dataNodeConfig.NameNodeInternalRequestsPort,
 			},
-			DB: database.DBInstance(dataNodeConfig.StorageDBName),
+			DB:    database.DBInstance(dataNodeConfig.StorageDBName),
+			Cache: cacheInstance,
 		}
 
 		dataNode.DB.Connection.AutoMigrate(&File{})

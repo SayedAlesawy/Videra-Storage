@@ -2,9 +2,9 @@ package outer
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
-	"strings"
 
 	namenode "github.com/SayedAlesawy/Videra-Storage/name_node"
 	"github.com/SayedAlesawy/Videra-Storage/utils/errors"
@@ -13,9 +13,16 @@ import (
 
 // ReplicationAddressesHandler is a handler responsible for providing data node addresses for replication
 func (server *Server) ReplicationAddressesHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	body, err := ioutil.ReadAll(r.Body)
+	if errors.IsError(err) {
+		log.Println(logPrefix, r.RemoteAddr, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Internal Server Error"))
+		return
+	}
 
 	// Get available node for replication
-	chosenDataNode, err := server.getReplicationNode(r.RemoteAddr)
+	chosenDataNode, err := server.getReplicationNode(string(body))
 	// There's no available nodes
 	if errors.IsError(err) {
 		log.Println(logPrefix, r.RemoteAddr, err)
@@ -30,7 +37,7 @@ func (server *Server) ReplicationAddressesHandler(w http.ResponseWriter, r *http
 }
 
 // getReplicationNode is a function to get available data node for replication
-func (server *Server) getReplicationNode(originalHost string) (namenode.DataNodeData, error) {
+func (server *Server) getReplicationNode(nodeID string) (namenode.DataNodeData, error) {
 	nameNode := namenode.NodeInstance()
 	var chosenDataNode namenode.DataNodeData
 
@@ -41,11 +48,11 @@ func (server *Server) getReplicationNode(originalHost string) (namenode.DataNode
 		return chosenDataNode, errors.New("No datanodes available")
 	}
 
-	hostIdx := getNodeByIP(dataNodesData, getNodeIP(originalHost))
+	hostIdx := getNodeByID(dataNodesData, nodeID)
 
 	// for some reason, the requester node is not available
 	if hostIdx == -1 {
-		return chosenDataNode, errors.New("Invalid IP")
+		return chosenDataNode, errors.New("Invalid Node ID")
 	}
 
 	// Request is routed to the node next to data node
@@ -53,23 +60,13 @@ func (server *Server) getReplicationNode(originalHost string) (namenode.DataNode
 	return chosenDataNode, nil
 }
 
-// getNodeByIP gets index of node with ip
-func getNodeByIP(dataNodes []namenode.DataNodeData, ip string) int {
-	log.Println("Node to get", ip)
+// getNodeByID gets index of node with id
+func getNodeByID(dataNodes []namenode.DataNodeData, id string) int {
 	for idx, datanode := range dataNodes {
-		if datanode.IP == ip {
+		if datanode.ID == id {
 			return idx
 		}
 	}
 
 	return -1
-}
-
-// getNodeIP removes port part from ip, for example 192.12.1.1:8080 to 192.12.1.1
-func getNodeIP(URL string) string {
-	idx := strings.Index(URL, ":")
-	if idx != -1 {
-		URL = URL[:idx]
-	}
-	return URL
 }

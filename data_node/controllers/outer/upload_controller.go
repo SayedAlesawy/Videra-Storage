@@ -255,6 +255,16 @@ func (server *Server) handleVideoInitialUpload(w http.ResponseWriter, r *http.Re
 		parentID = r.Header.Get("Parent")
 	}
 
+	// original node
+	if parentID == id {
+		log.Println("Send replicated init")
+		err := replication.ReplicateVideo(r, id)
+		if errors.IsError(err) {
+			log.Println(ucLogPrefix, r.RemoteAddr, err)
+			requests.HandleRequestError(w, http.StatusInternalServerError, "Internal server error")
+			return
+		}
+	}
 	//Insert a file info record in the database
 	err = datanode.NodeInstance().DB.Connection.Create(&datanode.File{
 		Token:      id,
@@ -275,11 +285,6 @@ func (server *Server) handleVideoInitialUpload(w http.ResponseWriter, r *http.Re
 
 	maxRequestSize := config.ConfigurationManagerInstance("").DataNodeConfig().MaxRequestSize
 
-	// original node
-	if parentID == id {
-		log.Println("Send replicated init")
-		replication.ReplicateVideo(r, id)
-	}
 	w.Header().Set("ID", id)
 	w.Header().Set("Max-Request-Size", fmt.Sprintf("%d", maxRequestSize))
 	w.WriteHeader(http.StatusCreated)
@@ -409,16 +414,21 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	if fileInfo.Type == datanode.VideoFileType && !isReplica(fileInfo) {
+		r.Body = ioutil.NopCloser(bytes.NewReader(body))
+		err := replication.ReplicateVideo(r, id)
+		if errors.IsError(err) {
+			log.Println(ucLogPrefix, r.RemoteAddr, err)
+			handleRequestError(w, http.StatusInternalServerError, "Internal server error")
+			return
+		}
+	}
+
 	err = datanode.NodeInstance().DB.Connection.Save(&fileInfo).Error
 	if errors.IsError(err) {
 		log.Println(ucLogPrefix, r.RemoteAddr, err)
 		requests.HandleRequestError(w, http.StatusInternalServerError, "Internal server error")
 		return
-	}
-
-	if fileInfo.Type == datanode.VideoFileType && !isReplica(fileInfo) {
-		r.Body = ioutil.NopCloser(bytes.NewReader(body))
-		replication.ReplicateVideo(r, id)
 	}
 
 	if fileInfo.Offset == fileInfo.Size {

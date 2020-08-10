@@ -295,7 +295,6 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 	log.Println(ucLogPrefix, r.RemoteAddr, "Received APPEND request")
 	// Content length not provided
 	if r.ContentLength <= 0 {
-		log.Println(r.Header)
 		log.Println(ucLogPrefix, r.RemoteAddr, "Content-Length header not provided")
 		requests.HandleRequestError(w, http.StatusBadRequest, "Content-Length header not provided")
 		return

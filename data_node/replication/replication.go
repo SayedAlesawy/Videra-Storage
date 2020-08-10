@@ -103,7 +103,9 @@ func replicateAppendRequest(r *http.Request, token string) error {
 
 	res, err := client.Do(req)
 	if err != nil {
-		deleteWithHash(getReplicaKey(token))
+		key := getReplicaKey()
+		field := getReplicaField(token)
+		deleteWithHash(key, field)
 		return err
 	}
 
@@ -112,14 +114,17 @@ func replicateAppendRequest(r *http.Request, token string) error {
 	}
 	// Replication is finished
 	if res.StatusCode == http.StatusCreated {
-		deleteWithHash(getReplicaKey(token))
+		key := getReplicaKey()
+		field := getReplicaField(token)
+		deleteWithHash(key, field)
 	}
 	return nil
 }
 
 func getReplicationNode(token string) (Replica, error) {
-	key := getReplicaKey(token)
-	node, _ := getFromHash(key, token)
+	key := getReplicaKey()
+	field := getReplicaField(token)
+	node, _ := getFromHash(key, field)
 
 	replica := Replica{}
 
@@ -134,7 +139,7 @@ func getReplicationNode(token string) (Replica, error) {
 		if err != nil {
 			return replica, err
 		}
-		insertIntoHash(key, token, replicaJSON)
+		insertIntoHash(key, field, replicaJSON)
 		log.Println(replicationLogPrefix, "Replica not exist in cache, now is set to URL: ", url)
 	} else {
 		decodedReplica, err := decodeReplicaNodeData(node)
@@ -177,8 +182,8 @@ func getAvailableNode() (string, error) {
 }
 
 func updateReplicaID(replica Replica, token string, fileID string) error {
-	key := getReplicaKey(token)
-	field := token
+	key := getReplicaKey()
+	field := getReplicaField(token)
 	replica.ID = fileID
 	replicaJSON, err := encodeReplicaNode(replica)
 	if err != nil {
@@ -199,9 +204,8 @@ func insertIntoHash(key string, field string, value string) error {
 }
 
 // deleteWithHash A function to delete a certain field in redis hash
-func deleteWithHash(key string) error {
-	log.Println(key)
-	return datanode.NodeInstance().Cache.Del(key).Err()
+func deleteWithHash(key string, field string) error {
+	return datanode.NodeInstance().Cache.HDel(key, field).Err()
 }
 
 // getFromHash A function to field from a redis hash
@@ -231,6 +235,12 @@ func decodeReplicaNodeData(encodedData string) (Replica, error) {
 	return dataNodeData, nil
 }
 
-func getReplicaKey(token string) string {
+func getReplicaKey() string {
+	nodeID := datanode.NodeInstance().ID
+	return fmt.Sprintf("DN-%s-replicas", nodeID)
+
+}
+
+func getReplicaField(token string) string {
 	return fmt.Sprintf("replica-%s", token)
 }

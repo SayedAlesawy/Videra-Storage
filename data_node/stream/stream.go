@@ -28,6 +28,8 @@ func PrepareStreamingVideo(videoInfo datanode.File) {
 		return
 	}
 
+	// removed the working directory part to support streaming server
+	folderPath = path.Join("stream", videoInfo.Parent)
 	streamFilePath := path.Join(folderPath, config.StreamPlaylistName)
 	err = updateDB(streamFilePath, videoInfo)
 	if err != nil {

@@ -19,6 +19,7 @@ import (
 	"github.com/SayedAlesawy/Videra-Storage/data_node/ingest"
 	"github.com/SayedAlesawy/Videra-Storage/data_node/replication"
 	"github.com/SayedAlesawy/Videra-Storage/data_node/stream"
+	"github.com/SayedAlesawy/Videra-Storage/data_node/thumbnail"
 	"github.com/SayedAlesawy/Videra-Storage/utils/errors"
 	"github.com/SayedAlesawy/Videra-Storage/utils/requests"
 	"github.com/julienschmidt/httprouter"
@@ -436,7 +437,10 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 			if !isReplica(fileInfo) {
 				go ingest.StartJob(fileInfo)
 			} else {
-				go stream.PrepareStreamingVideo(fileInfo)
+				go func() {
+					thumbnail.PrepareThumbnail(fileInfo)
+					stream.PrepareStreamingVideo(fileInfo)
+				}()
 			}
 		}
 

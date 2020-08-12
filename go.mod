@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/golang/protobuf v1.4.2
+	github.com/hashicorp/go-retryablehttp v0.6.7
 	github.com/jinzhu/gorm v1.9.13
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/onsi/ginkgo v1.12.3 // indirect

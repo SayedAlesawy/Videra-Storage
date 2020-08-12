@@ -46,6 +46,7 @@ func (server *Server) Start() {
 	router := httprouter.New()
 
 	router.GET("/upload", server.UploadRequestHandler)
+	router.GET("/replication", server.ReplicationAddressesHandler)
 	router.GET("/search", server.SearchRequestHandler)
 	router.GET("/tags", server.TagsRequestHandler)
 

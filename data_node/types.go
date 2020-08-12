@@ -3,6 +3,7 @@ package datanode
 import (
 	"time"
 
+	"github.com/SayedAlesawy/Videra-Storage/drivers/redis"
 	"github.com/SayedAlesawy/Videra-Storage/utils/database"
 )
 
@@ -16,6 +17,7 @@ type DataNode struct {
 	RejoinClusterInterval time.Duration      //Frequency of the rejoin cluster request
 	NameNode              NameNodeData       //Houses the needed info about the current name node
 	DB                    *database.Database //Database connection
+	Cache                 *redis.Client      //Used by the data node to access a persistent caching layer
 }
 
 //NameNodeData Houses the needed info about the name node

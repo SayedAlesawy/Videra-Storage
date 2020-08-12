@@ -28,6 +28,10 @@ type DataNodeconfig struct {
 	StreamSegmentTime            int    //Segment time in seconds for HLS protocol
 	StreamPlaylistName           string //HLS playlist file name
 	StreamFolderName             string //Name of folder that contains streaming files
+	ThumbnailOutputWidth         int    //Width of streaming output video
+	ThumbnailOutputHeight        int    //Height of streaming output video
+	ThumbnailCaptureSecond       int    //Time to capture thumbnail at, in seconds
+	ThumbnailFolderName          string //Name of folder that contains thumbnail files
 }
 
 // dataNodeConfigOnce Used to garauntee thread safety for singleton instances
@@ -63,6 +67,10 @@ func (manager *ConfigurationManager) DataNodeConfig() *DataNodeconfig {
 			StreamSegmentTime:            int(envInt("STREAM_SEGMENT_TIME", "60")),
 			StreamPlaylistName:           envString("STREAM_PLAYLIST_NAME", "index.m3u8"),
 			StreamFolderName:             envString("STREAM_FOLDER_NAME", "stream"),
+			ThumbnailCaptureSecond:       int(envInt("THUMBNAIL_CAPTURE_SECOND", "5")),
+			ThumbnailOutputWidth:         int(envInt("THUMBNAIL_OUTPUT_WIDTH", "256")),
+			ThumbnailOutputHeight:        int(envInt("THUMBNAIL_OUTPUT_HEIGHT", "144")),
+			ThumbnailFolderName:          envString("THUMBNAIL_FOLDER_NAME", "thumbnail"),
 		}
 
 		dataNodeConfigInstance = &dataNodeConfig

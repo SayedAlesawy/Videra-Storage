@@ -14,6 +14,7 @@ type File struct {
 	Type           string     //ndicates type of file (video, model .... etc)
 	Path           string     //Path to file (excluding file name)
 	HLSPath        string     //Path to HLS file in case of video
+	ThumbnailPath  string     //Path to thumbnail of video (in case of video)
 	Extras         string     `gorm:"size:500"` //Extras json field for any extra info
 	DataNodeID     string     //ID of the data node that has the file
 	Parent         string     //Token of the parent file in case it's a replica

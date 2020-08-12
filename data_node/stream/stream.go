@@ -19,21 +19,21 @@ func PrepareStreamingVideo(videoInfo datanode.File) {
 	config := config.ConfigurationManagerInstance("").DataNodeConfig()
 
 	wd, _ := os.Getwd()
-	folderPath := path.Join(wd, "stream", videoInfo.Parent)
+	folderPath := path.Join(wd, config.StreamFolderName, videoInfo.Parent)
 	datanode.CreateFileDirectory(folderPath, 0744)
 
 	err := encodeHLS(videoInfo.Path, folderPath)
 	if err != nil {
-		log.Println(err)
+		log.Println(streamEncodingLoggerPrefix, err)
 		return
 	}
 
 	// removed the working directory part to support streaming server
-	folderPath = path.Join("stream", videoInfo.Parent)
+	folderPath = path.Join(config.StreamFolderName, videoInfo.Parent)
 	streamFilePath := path.Join(folderPath, config.StreamPlaylistName)
 	err = updateDB(streamFilePath, videoInfo)
 	if err != nil {
-		log.Println(err)
+		log.Println(streamEncodingLoggerPrefix, err)
 		return
 	}
 	log.Println(streamEncodingLoggerPrefix, "Stream file encoded at ", streamFilePath)
@@ -44,7 +44,7 @@ func encodeHLS(inputFile string, outputFolder string) error {
 	args := prepareArgs(inputFile, outputFolder)
 	cmd := exec.Command(command, args...)
 
-	err := cmd.Run()
+	err := cmd.Start()
 	if err != nil {
 		return err
 	}
@@ -58,7 +58,7 @@ func prepareArgs(inputFile string, outputFolder string) []string {
 	config := config.ConfigurationManagerInstance("").DataNodeConfig()
 	args := fmt.Sprintf("-i %s", inputFile)
 	args = fmt.Sprintf("%s %s", args, "-profile:v baseline -level 3.0")
-	args = fmt.Sprintf("%s -s %s -start_number 0", args, config.StreamOutputVideoDimensions)
+	args = fmt.Sprintf("%s -s %dx%d -start_number 0", args, config.StreamOutputVideoWidth, config.StreamOutputVideoHeight)
 	args = fmt.Sprintf("%s -hls_time %d", args, config.StreamSegmentTime)
 	args = fmt.Sprintf("%s -hls_list_size 0 -f hls %s/%s", args, outputFolder, config.StreamPlaylistName)
 

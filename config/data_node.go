@@ -23,9 +23,11 @@ type DataNodeconfig struct {
 	IngestionModulePath          string //Path to ingestion module to execute jobs
 	ReplicationNumberOfRetries   int    //Number of retries when a failure happens in replication
 	ReplicationWaitingTime       int    //Waiting time between failed retries in replication
-	StreamOutputVideoDimensions  string //Dimensions of streaming output video
-	StreamSegmentTime            int    //Segment time for HLS protocol
-	StreamPlaylistName           string // HLS playlist file name
+	StreamOutputVideoWidth       int    //Width of streaming output video
+	StreamOutputVideoHeight      int    //Height of streaming output video
+	StreamSegmentTime            int    //Segment time in seconds for HLS protocol
+	StreamPlaylistName           string //HLS playlist file name
+	StreamFolderName             string //Name of folder that contains streaming files
 }
 
 // dataNodeConfigOnce Used to garauntee thread safety for singleton instances
@@ -56,9 +58,11 @@ func (manager *ConfigurationManager) DataNodeConfig() *DataNodeconfig {
 			IngestionModulePath:          envString("INGESTION_MODULE_PATH", "/home/ahmed/Downloads/Videra-Ingestion/orchestrator"),
 			ReplicationNumberOfRetries:   int(envInt("REPLICATION_RETIRES", "3")),
 			ReplicationWaitingTime:       int(envInt("REPLICATION_WAITING_TIME", "5")),
-			StreamOutputVideoDimensions:  envString("STREAM_VIDEO_DIMENSIONS", "256x144"),
+			StreamOutputVideoWidth:       int(envInt("STREAM_VIDEO_WIDTH", "256")),
+			StreamOutputVideoHeight:      int(envInt("STREAM_VIDEO_HEIGHT", "144")),
 			StreamSegmentTime:            int(envInt("STREAM_SEGMENT_TIME", "60")),
 			StreamPlaylistName:           envString("STREAM_PLAYLIST_NAME", "index.m3u8"),
+			StreamFolderName:             envString("STREAM_FOLDER_NAME", "stream"),
 		}
 
 		dataNodeConfigInstance = &dataNodeConfig

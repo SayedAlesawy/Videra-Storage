@@ -21,6 +21,8 @@ type DataNodeconfig struct {
 	MetadataCommand              string //Command for running script to fetch video metadata
 	MetadataScriptPath           string //Path to fetch metadata script
 	IngestionModulePath          string //Path to ingestion module to execute jobs
+	ReplicationNumberOfRetries   int    //Number of retries when a failure happens in replication
+	ReplicationWaitingTime       int    //Waiting time between failed retries in replication
 }
 
 // dataNodeConfigOnce Used to garauntee thread safety for singleton instances
@@ -49,6 +51,8 @@ func (manager *ConfigurationManager) DataNodeConfig() *DataNodeconfig {
 			MetadataCommand:              envString("METADATA_COMMAND", "/usr/bin/python3"),
 			MetadataScriptPath:           envString("METADATA_SCRIPT", "../../scripts/fetch_metadata.py"),
 			IngestionModulePath:          envString("INGESTION_MODULE_PATH", "/home/ahmed/Downloads/Videra-Ingestion/orchestrator"),
+			ReplicationNumberOfRetries:   int(envInt("REPLICATION_RETIRES", "3")),
+			ReplicationWaitingTime:       int(envInt("REPLICATION_WAITING_TIME", "5")),
 		}
 
 		dataNodeConfigInstance = &dataNodeConfig

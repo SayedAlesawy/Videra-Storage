@@ -257,7 +257,7 @@ func (server *Server) handleVideoInitialUpload(w http.ResponseWriter, r *http.Re
 
 	// original node
 	if parentID == id {
-		log.Println("Send replicated init")
+		log.Println(ucLogPrefix, "Send replicated init")
 		err := replication.ReplicateVideo(r, id)
 		if errors.IsError(err) {
 			log.Println(ucLogPrefix, r.RemoteAddr, err)

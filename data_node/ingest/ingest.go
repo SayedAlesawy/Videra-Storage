@@ -26,13 +26,13 @@ func StartJob(videoInfo datanode.File) {
 	var modelExtras datanode.ModelExtras
 	json.Unmarshal([]byte(modelInfo.Extras), &modelExtras)
 
-	executeJob(videoInfo.Path, modelInfo.Path, modelExtras.AssociatedConfigPath, modelExtras.AssociatedCodePath, modelInfo.Token, 0, metadata.FramesCount)
+	executeJob(videoInfo.Path, videoInfo.Token, modelInfo.Path, modelExtras.AssociatedConfigPath, modelExtras.AssociatedCodePath, modelInfo.Token, 0, metadata.FramesCount)
 }
 
 // executeJob starts command for starting ingestion
-func executeJob(videoPath string, modelPath string, configPath string, codePath string, groupID string, startIndex int, framesCount int) {
+func executeJob(videoPath string, videoToken string, modelPath string, configPath string, codePath string, groupID string, startIndex int, framesCount int) {
 	command := "./ingestion-engine.bin"
-	args := prepareArgs(videoPath, modelPath, configPath, codePath, groupID, startIndex, framesCount)
+	args := prepareArgs(videoPath, videoToken, modelPath, configPath, codePath, groupID, startIndex, framesCount)
 	cmd := exec.Command(command, args...)
 	cmd.Dir = config.ConfigurationManagerInstance("").DataNodeConfig().IngestionModulePath
 	err := cmd.Start()
@@ -43,15 +43,16 @@ func executeJob(videoPath string, modelPath string, configPath string, codePath 
 	log.Println(jobExecutionLoggerPrefix, fmt.Sprintf("Process with PID: %d started successfully", cmd.Process.Pid))
 }
 
-func prepareArgs(videoPath string, modelPath string, configPath string, codePath string, groupID string, startIndex int, frameCount int) []string {
+func prepareArgs(videoPath string, videoToken string, modelPath string, configPath string, codePath string, groupID string, startIndex int, frameCount int) []string {
 	codeFolder, _ := path.Split(codePath)
 	execGroupArg := fmt.Sprintf("-execution-group-id=%s", groupID)
 	videoPathArg := fmt.Sprintf("-video-path=%s", videoPath)
+	videoTokenArg := fmt.Sprintf("-video-token=%s", videoToken)
 	modelPathArg := fmt.Sprintf("-model-path=%s", modelPath)
 	configPathArg := fmt.Sprintf("-model-config-path=%s", configPath)
 	codePathArg := fmt.Sprintf("-code-path=%s", codeFolder)
 	startIndexArg := fmt.Sprintf("-start-idx=%d", startIndex)
 	frameCountArg := fmt.Sprintf("-frame-count=%d", frameCount)
-	args := []string{execGroupArg, videoPathArg, modelPathArg, configPathArg, codePathArg, startIndexArg, frameCountArg}
+	args := []string{execGroupArg, videoPathArg, videoTokenArg, modelPathArg, configPathArg, codePathArg, startIndexArg, frameCountArg}
 	return args
 }

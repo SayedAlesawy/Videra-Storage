@@ -26,12 +26,14 @@ func invalidCacheValue(value string, err error) bool {
 	return fmt.Sprintf("%v", err) == "redis: nil" && value == ""
 }
 
+// getReplicaKey is a helper function to generate replica key for cache
 func getReplicaKey() string {
 	nodeID := datanode.NodeInstance().ID
 	return fmt.Sprintf("DN-%s-replicas", nodeID)
 
 }
 
+// getReplicaKey is a helper function to generate replica field for cache
 func getReplicaField(token string) string {
 	return fmt.Sprintf("replica-%s", token)
 }

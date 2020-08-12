@@ -8,21 +8,21 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-// fileServerOnce Used to garauntee thread safety for singleton instances
-var fileServerOnce sync.Once
+// streamFileServerOnce Used to garauntee thread safety for singleton instances
+var streamFileServerOnce sync.Once
 
-// fileServerInstance A singleton instance of the fileServer object, to serve files in directory
-var fileServer http.Handler
+// streamFileServerInstance A singleton instance of the streamFileServer object, to serve files in directory
+var streamFileServer http.Handler
 
-// fileServerInstance A function to return a singleton fileServer instance
-func fileServerInstance() http.Handler {
+// streamFileServerInstance A function to return a singleton streamFileServer instance
+func streamFileServerInstance() http.Handler {
 	dataNodeConfig := config.ConfigurationManagerInstance("").DataNodeConfig()
 
-	fileServerOnce.Do(func() {
-		fileServer = http.FileServer(http.Dir(dataNodeConfig.StreamFolderName))
+	streamFileServerOnce.Do(func() {
+		streamFileServer = http.FileServer(http.Dir(dataNodeConfig.StreamFolderName))
 	})
 
-	return fileServer
+	return streamFileServer
 }
 
 // StreamingHandler is a handle responsible for serving streaming requests
@@ -32,5 +32,5 @@ func (server *Server) StreamingHandler(w http.ResponseWriter, r *http.Request, p
 	// but this header isn't recommended in production
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	r.URL.Path = p.ByName("filepath")
-	fileServerInstance().ServeHTTP(w, r)
+	streamFileServerInstance().ServeHTTP(w, r)
 }

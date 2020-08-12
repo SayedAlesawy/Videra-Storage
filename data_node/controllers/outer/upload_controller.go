@@ -18,6 +18,7 @@ import (
 	datanode "github.com/SayedAlesawy/Videra-Storage/data_node"
 	"github.com/SayedAlesawy/Videra-Storage/data_node/ingest"
 	"github.com/SayedAlesawy/Videra-Storage/data_node/replication"
+	"github.com/SayedAlesawy/Videra-Storage/data_node/stream"
 	"github.com/SayedAlesawy/Videra-Storage/utils/errors"
 	"github.com/SayedAlesawy/Videra-Storage/utils/requests"
 	"github.com/julienschmidt/httprouter"
@@ -435,7 +436,7 @@ func (server *Server) handleAppendUpload(w http.ResponseWriter, r *http.Request)
 			if !isReplica(fileInfo) {
 				go ingest.StartJob(fileInfo)
 			} else {
-				log.Println("Replication done")
+				go stream.PrepareStreamingVideo(fileInfo)
 			}
 		}
 

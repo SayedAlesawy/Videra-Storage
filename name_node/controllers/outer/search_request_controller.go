@@ -2,6 +2,7 @@ package outer
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -16,9 +17,10 @@ var scLogPrefix = "[Search-Controller]"
 
 // searchResult Represents the result payload of the search endpoint
 type searchResult struct {
-	Tag   string `json:"tag"`
-	Start uint64 `json:"start"`
-	End   uint64 `json:"end"`
+	DataNodeID    string `json:"-"`
+	Name          string `json:"name"`
+	Token         string `json:"token"`
+	ThumbnailPath string `json:"thumbnail"`
 }
 
 // SearchRequestHandler Handles client's search request
@@ -38,7 +40,7 @@ func (server *Server) SearchRequestHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var clips []namenode.Clip
+	var results []searchResult
 
 	tag := r.URL.Query().Get("tag")
 
@@ -61,12 +63,13 @@ func (server *Server) SearchRequestHandler(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		clips = retrieveClips(tag, start, end)
+		results = retrieveVideos(tag, start, end)
 	} else {
-		clips = retrieveClips(tag)
+		results = retrieveVideos(tag)
 	}
 
-	resp, err := json.Marshal(decorateClips(clips))
+	updateThumbnailURL(results)
+	resp, err := json.Marshal(results)
 	if errors.IsError(err) {
 		log.Println(scLogPrefix, r.RemoteAddr, err)
 		requests.HandleRequestError(w, http.StatusInternalServerError, err.Error())
@@ -77,27 +80,48 @@ func (server *Server) SearchRequestHandler(w http.ResponseWriter, r *http.Reques
 	w.Write(resp)
 }
 
-// retrieveClips A function to query the clips table for matching records
-func retrieveClips(params ...interface{}) []namenode.Clip {
-	var clips []namenode.Clip
-
+// retrieveVideos A function to query the clips table for matching records
+func retrieveVideos(params ...interface{}) []searchResult {
+	var results []searchResult
 	if len(params) == 1 {
-		namenode.NodeInstance().DB.Connection.Where("tag = ?", params[0]).Find(&clips)
+		namenode.NodeInstance().DB.Connection.Raw(`
+		SELECT files.parent AS token, files.name, files.thumbnail_path, files.ID, files.data_node_id
+		FROM files INNER JOIN 
+		(
+			SELECT DISTINCT(token) FROM clips WHERE tag = ?
+		) AS videos 
+		ON files.parent =  videos.token 
+		WHERE files.parent != files.token`,
+			params[0]).Scan(&results)
 	} else {
-		namenode.NodeInstance().DB.Connection.Where("tag = ? and start_time >= ? and start_time <= ?",
-			params[0], params[1], params[2]).Find(&clips)
+		namenode.NodeInstance().DB.Connection.Raw(`
+		SELECT files.parent AS token, files.name, files.thumbnail_path, files.data_node_id AS DataNodeID
+		FROM files INNER JOIN 
+		(
+			SELECT DISTINCT(token) FROM clips WHERE tag = ? and start_time >= ? and start_time <= ?
+		) AS videos 
+		ON files.parent =  videos.token 
+		WHERE files.parent != files.token`,
+			params[0], params[1], params[2]).Scan(&results)
 	}
 
-	return clips
+	return results
 }
 
-// decorate A function to decorate the search result for web
-func decorateClips(clips []namenode.Clip) []searchResult {
-	var result []searchResult
-
-	for _, clip := range clips {
-		result = append(result, searchResult{Tag: clip.Tag, Start: clip.StartTime, End: clip.EndTime})
+// updateThumbnailURL updates thumbnail url based on datanode url
+func updateThumbnailURL(results []searchResult) {
+	datanodes := namenode.NodeInstance().GetAllDataNodeData()
+	URLS := make(map[string]string)
+	for _, datanode := range datanodes {
+		URLS[datanode.ID] = namenode.GetURL(datanode.IP, datanode.Port)
 	}
 
-	return result
+	for i := range results {
+		datanodeURL, ok := URLS[results[i].DataNodeID]
+		if ok {
+			results[i].ThumbnailPath = fmt.Sprintf("%s/%s", datanodeURL, results[i].ThumbnailPath)
+		} else {
+			results[i].ThumbnailPath = ""
+		}
+	}
 }

@@ -45,3 +45,8 @@ func (nameNode *NameNode) decodeDataNodeData(encodedData string) (DataNodeData, 
 
 	return dataNodeData, nil
 }
+
+// GetURL returns URL from ip and port
+func GetURL(ip string, port string) string {
+	return fmt.Sprintf("http://%s:%s", ip, port)
+}

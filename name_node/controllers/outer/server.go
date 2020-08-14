@@ -48,6 +48,7 @@ func (server *Server) Start() {
 	router.GET("/upload", server.UploadRequestHandler)
 	router.GET("/replication", server.ReplicationAddressesHandler)
 	router.GET("/search", server.SearchRequestHandler)
+	router.GET("/stream", server.StreamRequestHandler)
 	router.GET("/tags", server.TagsRequestHandler)
 
 	address := server.getAddress()

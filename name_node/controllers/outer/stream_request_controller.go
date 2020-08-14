@@ -25,7 +25,7 @@ type clipResultInfo struct {
 type streamResult struct {
 	DataNodeID string           `json:"-"`
 	VideoLink  string           `json:"src_link"`
-	Status     string           `json:"status"`
+	Progress   int              `json:"progress"`
 	Clips      []clipResultInfo `json:"clips"`
 }
 
@@ -69,10 +69,10 @@ func (server *Server) StreamRequestHandler(w http.ResponseWriter, r *http.Reques
 
 			return
 		}
-		result.Status = retrieveIngestionStatus(token)
+		result.Progress = retrieveIngestionStatus(token)
 		result.Clips = retrieveClips(token, tag, start, end)
 	} else {
-		result.Status = retrieveIngestionStatus(token)
+		result.Progress = retrieveIngestionStatus(token)
 		result.Clips = retrieveClips(token, tag)
 	}
 
@@ -91,7 +91,7 @@ func (server *Server) StreamRequestHandler(w http.ResponseWriter, r *http.Reques
 }
 
 // retrieveIngestionStatus retrieves whether ingestion is complete or incomplete
-func retrieveIngestionStatus(token string) string {
+func retrieveIngestionStatus(token string) int {
 
 	queryResult := struct {
 		TotalJobCount  int
@@ -102,11 +102,11 @@ func retrieveIngestionStatus(token string) string {
 	FROM files 
 	WHERE files.token = ?`, token).Scan(&queryResult)
 
-	if queryResult.TotalDoneCount == queryResult.TotalJobCount {
-		return "complete"
+	if queryResult.TotalJobCount != 0 {
+		return 100 * queryResult.TotalDoneCount / queryResult.TotalJobCount
 	}
 
-	return "incomplete"
+	return 0
 }
 
 // retrieveClips A function to query the clips table for matching records

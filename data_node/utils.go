@@ -38,3 +38,12 @@ func GenerateRandomString(n int) string {
 func (dataNode *DataNode) getNameNodeAddress() string {
 	return fmt.Sprintf("%s:%s", dataNode.NameNode.IP, dataNode.NameNode.Port)
 }
+
+// checkGPUStatus A function to check the GPU status of a data node
+func checkGPUStatus(status string) bool {
+	if status == "true" {
+		return true
+	}
+
+	return false
+}

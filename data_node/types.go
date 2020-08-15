@@ -13,6 +13,7 @@ type DataNode struct {
 	ID                    string             //Unique ID for the data node
 	Port                  string             //Port on which all external comm is done
 	InternalPort          string             //Port on which all internal comm is done
+	GPU                   bool               //Indicates if the data node has a GPU
 	InternalReqTimeout    time.Duration      //Timeout for internal requests
 	RejoinClusterInterval time.Duration      //Frequency of the rejoin cluster request
 	NameNode              NameNodeData       //Houses the needed info about the current name node

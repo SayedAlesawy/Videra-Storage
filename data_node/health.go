@@ -26,6 +26,7 @@ func (dataNode *DataNode) JoinCluster() {
 			IP:           dataNode.IP,
 			Port:         dataNode.Port,
 			InternalPort: dataNode.InternalPort,
+			GPU:          dataNode.GPU,
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), dataNode.InternalReqTimeout)

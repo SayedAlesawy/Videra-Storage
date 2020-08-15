@@ -12,6 +12,7 @@ type DataNodeconfig struct {
 	InternalRequestsPort         string //The internal requests ports
 	NameNodeInternalRequestsPort string //The internal requests port of the name node
 	Port                         string //Port to listen to requests
+	GPU                          string //Indicates if the datanode has a GPU
 	NetworkProtocol              string //Network protocol used by the data node
 	NameNodeReplicationURL       string //URL to request datanodes for replication
 	StorageDBName                string //Storage database name
@@ -51,6 +52,7 @@ func (manager *ConfigurationManager) DataNodeConfig() *DataNodeconfig {
 			InternalRequestsPort:         envString("INTERNAL_REQ_PORT", "6000"),
 			NameNodeInternalRequestsPort: envString("NAME_NODE_INTERNAL_REQ_PORT", "7000"),
 			Port:                         envString("PORT", "8080"),
+			GPU:                          envString("GPU", "false"),
 			NameNodeReplicationURL:       envString("NAME_NODE_REPLICATION_URL", "http://localhost:8080/replication"),
 			NetworkProtocol:              envString("NET_PROTOCOL", "tcp"),
 			StorageDBName:                envString("STO_DB_NAME", "videra_storage"),

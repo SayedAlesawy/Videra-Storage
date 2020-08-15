@@ -33,6 +33,7 @@ func NodeInstance() *DataNode {
 			ID:                    dataNodeConfig.ID,
 			Port:                  dataNodeConfig.Port,
 			InternalPort:          dataNodeConfig.InternalRequestsPort,
+			GPU:                   checkGPUStatus(dataNodeConfig.GPU),
 			InternalReqTimeout:    time.Duration(dataNodeConfig.InternalReqTimeout) * time.Second,
 			RejoinClusterInterval: time.Duration(dataNodeConfig.RejoinClusterInterval) * time.Second,
 			NameNode: NameNodeData{

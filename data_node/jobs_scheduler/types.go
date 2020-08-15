@@ -15,12 +15,12 @@ type job struct {
 	dir           string
 	cmd           string
 	args          []string
-	postExecution postJob //update set after job execution
+	postExecution PostJob //update set after job execution
 }
 
-// postJob represents an update set to db after job execution
-type postJob struct {
-	ID         string
+// PostJob represents an update set to db after job execution
+type PostJob struct {
+	ID         uint
 	TableName  string
 	ColumnName string
 	NewValue   string

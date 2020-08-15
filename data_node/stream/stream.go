@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"path"
 	"strings"
 
 	"github.com/SayedAlesawy/Videra-Storage/config"
 	datanode "github.com/SayedAlesawy/Videra-Storage/data_node"
+	jobscheduler "github.com/SayedAlesawy/Videra-Storage/data_node/jobs_scheduler"
 )
 
 var streamEncodingLoggerPrefix = "[Stream-Encoding]"
@@ -22,36 +22,20 @@ func PrepareStreamingVideo(videoInfo datanode.File) {
 	folderPath := path.Join(wd, config.StreamFolderName, videoInfo.Parent)
 	datanode.CreateFileDirectory(folderPath, 0744)
 
-	err := encodeHLS(videoInfo.Path, folderPath)
-	if err != nil {
-		log.Println(streamEncodingLoggerPrefix, err)
-		return
-	}
-
 	// removed the working directory part to support streaming server
 	folderPath = path.Join(config.StreamFolderName, videoInfo.Parent)
 	streamFilePath := path.Join(folderPath, config.StreamPlaylistName)
-	err = updateDB(streamFilePath, videoInfo)
-	if err != nil {
-		log.Println(streamEncodingLoggerPrefix, err)
-		return
-	}
-	log.Println(streamEncodingLoggerPrefix, "Stream file encoded at ", streamFilePath)
-}
 
-func encodeHLS(inputFile string, outputFolder string) error {
 	command := "ffmpeg"
-	args := prepareArgs(inputFile, outputFolder)
-	cmd := exec.Command(command, args...)
+	args := prepareArgs(videoInfo.Path, folderPath)
+	name := getJobName(videoInfo.Parent)
+	tableName := datanode.NodeInstance().DB.Connection.NewScope(videoInfo).TableName()
+	columnName := "hls_path"
+	post := jobscheduler.PostJob{ID: videoInfo.ID, TableName: tableName, ColumnName: columnName, NewValue: streamFilePath}
 
-	err := cmd.Start()
-	if err != nil {
-		return err
-	}
-
-	log.Println(streamEncodingLoggerPrefix, "starting encoding HLS at process", cmd.Process.Pid)
-	cmd.Wait()
-	return nil
+	jobScheduler := jobscheduler.JobQueueInstance()
+	jobScheduler.InsertJob(name, command, args, post)
+	log.Println(streamEncodingLoggerPrefix, "Submitted hls encode for file", videoInfo.Parent)
 }
 
 func prepareArgs(inputFile string, outputFolder string) []string {
@@ -65,7 +49,6 @@ func prepareArgs(inputFile string, outputFolder string) []string {
 	return strings.Split(args, " ")
 }
 
-func updateDB(streamFilePath string, videoInfo datanode.File) error {
-	dn := datanode.NodeInstance()
-	return dn.DB.Connection.Model(&videoInfo).Update("HLSPath", streamFilePath).Error
+func getJobName(token string) string {
+	return fmt.Sprintf("HLS-%s", token)
 }

@@ -41,12 +41,12 @@ func JobQueueInstance() *JobQueue {
 }
 
 // InsertJob inserts a job into job queue to be executed
-func (jobQueue *JobQueue) InsertJob(name string, cmd string, args []string, postExecution postJob) {
+func (jobQueue *JobQueue) InsertJob(name string, cmd string, args []string, postExecution PostJob) {
 	jobQueue.InsertJobWithDir(name, "", cmd, args, postExecution)
 }
 
 // InsertJobWithDir inserts a job into job queue to be executed at dir
-func (jobQueue *JobQueue) InsertJobWithDir(name string, dir string, cmd string, args []string, postExecution postJob) {
+func (jobQueue *JobQueue) InsertJobWithDir(name string, dir string, cmd string, args []string, postExecution PostJob) {
 	jobQueue.jobsQueue <- job{name: name, dir: dir, cmd: cmd, args: args, postExecution: postExecution}
 }
 
@@ -88,8 +88,13 @@ func (jobQueue *JobQueue) executeJob(executedJob job) {
 	}()
 
 	select {
-	case <-done:
-		log.Println(logPrefix, fmt.Sprintf("Job %s completed successfuly!", executedJob.name))
+	case err := <-done:
+		log.Println(logPrefix, fmt.Sprintf("Job %s Finished!", executedJob.name))
+		if err != nil {
+			log.Println(logPrefix, fmt.Sprintf("Job %s failed!", executedJob.name))
+		} else {
+			log.Println(logPrefix, fmt.Sprintf("Job %s completed successfuly!", executedJob.name))
+		}
 		if hasPostExecution(executedJob.postExecution) {
 			err = updateDB(executedJob.postExecution)
 			if err != nil {
@@ -112,7 +117,7 @@ func (jobQueue *JobQueue) addTokens(count int) {
 }
 
 // updateDB is responsible for updating DB
-func updateDB(postExecution postJob) error {
+func updateDB(postExecution PostJob) error {
 	dn := datanode.NodeInstance()
-	return dn.DB.Connection.Raw("UPDATE ? SET ? = ? WHERE id = ?", postExecution.TableName, postExecution.ColumnName, postExecution.NewValue, postExecution.ID).Error
+	return dn.DB.Connection.Table(postExecution.TableName).Where("id=?", postExecution.ID).Update(postExecution.ColumnName, postExecution.NewValue).Error
 }

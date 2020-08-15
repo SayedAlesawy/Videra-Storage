@@ -47,6 +47,10 @@ func (server *Server) getAvailableDataNode(nameNode *namenode.NameNode) (namenod
 	}
 
 	for idx, dataNode := range dataNodesData {
+		if dataNode.GPU == false {
+			continue
+		}
+
 		if idx == 0 {
 			chosenDataNode = dataNode
 		} else {

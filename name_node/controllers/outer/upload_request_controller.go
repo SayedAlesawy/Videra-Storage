@@ -46,19 +46,26 @@ func (server *Server) getAvailableDataNode(nameNode *namenode.NameNode) (namenod
 		return chosenDataNode, errors.New("No datanodes available")
 	}
 
-	for idx, dataNode := range dataNodesData {
+	hasChoosenNode := false
+	for _, dataNode := range dataNodesData {
 		if dataNode.GPU == false {
 			continue
 		}
 
-		if idx == 0 {
-			chosenDataNode = dataNode
-		} else {
+		if hasChoosenNode {
 			if chosenDataNode.RequestCount > dataNode.RequestCount {
 				chosenDataNode = dataNode
 			}
+		} else {
+			chosenDataNode = dataNode
+			hasChoosenNode = true
 		}
 	}
+
+	if !hasChoosenNode {
+		return namenode.DataNodeData{}, errors.New("Can't find a machine with GPU")
+	}
+
 	return chosenDataNode, nil
 }
 

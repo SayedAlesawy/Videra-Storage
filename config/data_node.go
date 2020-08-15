@@ -52,7 +52,7 @@ func (manager *ConfigurationManager) DataNodeConfig() *DataNodeconfig {
 			InternalRequestsPort:         envString("INTERNAL_REQ_PORT", "6000"),
 			NameNodeInternalRequestsPort: envString("NAME_NODE_INTERNAL_REQ_PORT", "7000"),
 			Port:                         envString("PORT", "8080"),
-			GPU:                          envString("GPU", "false"),
+			GPU:                          envString("GPU_STATUS", "false"),
 			NameNodeReplicationURL:       envString("NAME_NODE_REPLICATION_URL", "http://localhost:8080/replication"),
 			NetworkProtocol:              envString("NET_PROTOCOL", "tcp"),
 			StorageDBName:                envString("STO_DB_NAME", "videra_storage"),

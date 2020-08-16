@@ -46,7 +46,7 @@ func (server *Server) Start() {
 	router := httprouter.New()
 	router.POST("/upload", server.UploadRequestHandler)
 	router.GET("/stream/*filepath", server.StreamingHandler)
-	router.GET("/thumbnails/*filepath", server.ThumbnailsHandler)
+	router.GET("/thumbnail/*filepath", server.ThumbnailsHandler)
 	address := server.getAddress()
 
 	log.Println(logPrefix, fmt.Sprintf("Listening for external requests on %s", address))

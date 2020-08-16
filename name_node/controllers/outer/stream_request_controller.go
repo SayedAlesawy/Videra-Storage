@@ -25,6 +25,7 @@ type clipResultInfo struct {
 type streamResult struct {
 	DataNodeID string           `json:"-"`
 	VideoLink  string           `json:"src_link"`
+	Progress   int              `json:"progress"`
 	Clips      []clipResultInfo `json:"clips"`
 }
 
@@ -68,9 +69,10 @@ func (server *Server) StreamRequestHandler(w http.ResponseWriter, r *http.Reques
 
 			return
 		}
-
+		result.Progress = retrieveIngestionStatus(token)
 		result.Clips = retrieveClips(token, tag, start, end)
 	} else {
+		result.Progress = retrieveIngestionStatus(token)
 		result.Clips = retrieveClips(token, tag)
 	}
 
@@ -88,14 +90,33 @@ func (server *Server) StreamRequestHandler(w http.ResponseWriter, r *http.Reques
 	w.Write(resp)
 }
 
+// retrieveIngestionStatus retrieves whether ingestion is complete or incomplete
+func retrieveIngestionStatus(token string) int {
+
+	queryResult := struct {
+		TotalJobCount  int
+		TotalDoneCount int
+	}{}
+	namenode.NodeInstance().DB.Connection.Raw(`
+	SELECT total_job_count, total_done_count
+	FROM files 
+	WHERE files.token = ?`, token).Scan(&queryResult)
+
+	if queryResult.TotalJobCount != 0 {
+		return 100 * queryResult.TotalDoneCount / queryResult.TotalJobCount
+	}
+
+	return 0
+}
+
 // retrieveClips A function to query the clips table for matching records
 func retrieveClips(params ...interface{}) []clipResultInfo {
 	var clips []clipResultInfo
 
 	if len(params) == 2 {
-		namenode.NodeInstance().DB.Connection.Raw("SELECT * FROM clips WHERE token = ? and tag = ?", params[0], params[1]).Scan(&clips)
+		namenode.NodeInstance().DB.Connection.Raw("SELECT DISTINCT start_time, end_time FROM clips WHERE token = ? and tag = ? ORDER BY start_time", params[0], params[1]).Scan(&clips)
 	} else {
-		namenode.NodeInstance().DB.Connection.Raw("SELECT * FROM clips WHERE token = ? and tag = ? and start_time >= ? and start_time <= ?",
+		namenode.NodeInstance().DB.Connection.Raw("SELECT DISTINCT start_time, end_time FROM clips WHERE token = ? and tag = ? and start_time >= ? and start_time <= ? ORDER BY start_time",
 			params[0], params[1], params[2], params[3]).Scan(&clips)
 	}
 
@@ -115,6 +136,9 @@ func retrieveVideoInfo(token string) streamResult {
 
 // getVideoURL updates video url based on datanode url
 func getVideoURL(videoPath string, datanodeID string) string {
+	if videoPath == "" {
+		return ""
+	}
 	datanodes := namenode.NodeInstance().GetAllDataNodeData()
 	for _, datanode := range datanodes {
 		if datanode.ID == datanodeID {

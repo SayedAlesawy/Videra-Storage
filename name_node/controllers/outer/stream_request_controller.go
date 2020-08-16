@@ -114,9 +114,9 @@ func retrieveClips(params ...interface{}) []clipResultInfo {
 	var clips []clipResultInfo
 
 	if len(params) == 2 {
-		namenode.NodeInstance().DB.Connection.Raw("SELECT * FROM clips WHERE token = ? and tag = ? ORDER BY start_time", params[0], params[1]).Scan(&clips)
+		namenode.NodeInstance().DB.Connection.Raw("SELECT DISTINCT start_time, end_time FROM clips WHERE token = ? and tag = ? ORDER BY start_time", params[0], params[1]).Scan(&clips)
 	} else {
-		namenode.NodeInstance().DB.Connection.Raw("SELECT * FROM clips WHERE token = ? and tag = ? and start_time >= ? and start_time <= ? ORDER BY start_time",
+		namenode.NodeInstance().DB.Connection.Raw("SELECT DISTINCT start_time, end_time FROM clips WHERE token = ? and tag = ? and start_time >= ? and start_time <= ? ORDER BY start_time",
 			params[0], params[1], params[2], params[3]).Scan(&clips)
 	}
 
@@ -136,6 +136,9 @@ func retrieveVideoInfo(token string) streamResult {
 
 // getVideoURL updates video url based on datanode url
 func getVideoURL(videoPath string, datanodeID string) string {
+	if videoPath == "" {
+		return ""
+	}
 	datanodes := namenode.NodeInstance().GetAllDataNodeData()
 	for _, datanode := range datanodes {
 		if datanode.ID == datanodeID {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	namenode "github.com/SayedAlesawy/Videra-Storage/name_node"
 	"github.com/SayedAlesawy/Videra-Storage/utils/errors"
@@ -27,6 +28,7 @@ func (server *Server) UploadRequestHandler(w http.ResponseWriter, r *http.Reques
 
 	// update request count for further selection
 	chosenDataNode.RequestCount++
+	chosenDataNode.LastRequestTime = time.Now()
 	nameNode.InsertDataNodeData(chosenDataNode)
 
 	chosenNodeURL := server.getDataNodeUploadURL(chosenDataNode.IP, chosenDataNode.Port)
@@ -38,22 +40,22 @@ func (server *Server) UploadRequestHandler(w http.ResponseWriter, r *http.Reques
 // getAvailableDataNode is a function to get available data node
 // it tries to choose a data node with minimum load
 func (server *Server) getAvailableDataNode(nameNode *namenode.NameNode) (namenode.DataNodeData, error) {
-	var chosenDataNode namenode.DataNodeData
-
-	dataNodesData := nameNode.GetAllDataNodeData()
+	dataNodes := nameNode.GetAllDataNodeData()
 	// There's no available nodes
-	if len(dataNodesData) == 0 {
-		return chosenDataNode, errors.New("No datanodes available")
+	if len(dataNodes) == 0 {
+		return namenode.DataNodeData{}, errors.New("No datanodes available")
 	}
 
+	var chosenDataNode namenode.DataNodeData
 	hasChoosenNode := false
-	for _, dataNode := range dataNodesData {
-		if dataNode.GPU == false {
+
+	for _, dataNode := range dataNodes {
+		if !dataNode.GPU {
 			continue
 		}
 
 		if hasChoosenNode {
-			if chosenDataNode.RequestCount > dataNode.RequestCount {
+			if dataNode.LastRequestTime.Before(chosenDataNode.LastRequestTime) {
 				chosenDataNode = dataNode
 			}
 		} else {

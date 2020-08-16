@@ -22,11 +22,12 @@ type NameNode struct {
 
 //DataNodeData Houses the needed info about a data node
 type DataNodeData struct {
-	ID           string `json:"id"`            //Unique ID for each data node
-	IP           string `json:"ip"`            //IP of the data node host
-	InternalPort string `json:"internal_port"` //Port on which the name node communicates with the data node
-	Port         string `json:"port"`          //Port on which the data node communicates with clients
-	GPU          bool   `json:"gpu"`           //GPU status of the data node
-	Latency      int    `json:"latency"`       //Count of missed pings by the data node
-	RequestCount uint   `json:"request_count"` //Number of clients requests routed to the data node
+	ID              string    `json:"id"`                //Unique ID for each data node
+	IP              string    `json:"ip"`                //IP of the data node host
+	InternalPort    string    `json:"internal_port"`     //Port on which the name node communicates with the data node
+	Port            string    `json:"port"`              //Port on which the data node communicates with clients
+	GPU             bool      `json:"gpu"`               //GPU status of the data node
+	Latency         int       `json:"latency"`           //Count of missed pings by the data node
+	RequestCount    uint      `json:"request_count"`     //Number of clients requests routed to the data node
+	LastRequestTime time.Time `json:"last_request_time"` //Stores the timestamp of the last request served by a node
 }

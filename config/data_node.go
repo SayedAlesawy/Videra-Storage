@@ -33,6 +33,8 @@ type DataNodeconfig struct {
 	ThumbnailOutputHeight        int    //Height of streaming output video
 	ThumbnailCaptureSecond       int    //Time to capture thumbnail at, in seconds
 	ThumbnailFolderName          string //Name of folder that contains thumbnail files
+	MaximumConcurrentJobs        int    //Maximum number of running concurrent jobs
+	JobTimeout                   int    //Maximum time for a job untill timeout, in seconds
 }
 
 // dataNodeConfigOnce Used to garauntee thread safety for singleton instances
@@ -73,6 +75,8 @@ func (manager *ConfigurationManager) DataNodeConfig() *DataNodeconfig {
 			ThumbnailOutputWidth:         int(envInt("THUMBNAIL_OUTPUT_WIDTH", "256")),
 			ThumbnailOutputHeight:        int(envInt("THUMBNAIL_OUTPUT_HEIGHT", "144")),
 			ThumbnailFolderName:          envString("THUMBNAIL_FOLDER_NAME", "thumbnail"),
+			MaximumConcurrentJobs:        int(envInt("MAXIMUM_CONCURRENT_JOBS", "1")),
+			JobTimeout:                   int(envInt("JOB_TIMEOUT", "7200")),
 		}
 
 		dataNodeConfigInstance = &dataNodeConfig

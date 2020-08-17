@@ -3,13 +3,11 @@ package ingest
 import (
 	"encoding/json"
 	"fmt"
-	"log"
-	"os/exec"
 	"path"
 
 	"github.com/SayedAlesawy/Videra-Storage/config"
 	datanode "github.com/SayedAlesawy/Videra-Storage/data_node"
-	"github.com/SayedAlesawy/Videra-Storage/utils/errors"
+	jobscheduler "github.com/SayedAlesawy/Videra-Storage/data_node/jobs_scheduler"
 )
 
 var jobExecutionLoggerPrefix = "[Job-Execution]"
@@ -33,14 +31,10 @@ func StartJob(videoInfo datanode.File) {
 func executeJob(videoPath string, videoToken string, modelPath string, configPath string, codePath string, groupID string, startIndex int, framesCount int) {
 	command := "./ingestion-engine.bin"
 	args := prepareArgs(videoPath, videoToken, modelPath, configPath, codePath, groupID, startIndex, framesCount)
-	cmd := exec.Command(command, args...)
-	cmd.Dir = config.ConfigurationManagerInstance("").DataNodeConfig().IngestionModulePath
-	err := cmd.Start()
-	if errors.IsError(err) {
-		log.Println(jobExecutionLoggerPrefix, err)
-		return
-	}
-	log.Println(jobExecutionLoggerPrefix, fmt.Sprintf("Process with PID: %d started successfully", cmd.Process.Pid))
+	jobDir := config.ConfigurationManagerInstance("").DataNodeConfig().IngestionModulePath
+	jobName := getJobName(groupID)
+	jobQueue := jobscheduler.JobQueueInstance()
+	jobQueue.InsertJobWithDir(jobName, jobDir, command, args, jobscheduler.PostJob{})
 }
 
 func prepareArgs(videoPath string, videoToken string, modelPath string, configPath string, codePath string, groupID string, startIndex int, frameCount int) []string {
@@ -55,4 +49,8 @@ func prepareArgs(videoPath string, videoToken string, modelPath string, configPa
 	frameCountArg := fmt.Sprintf("-frame-count=%d", frameCount)
 	args := []string{execGroupArg, videoPathArg, videoTokenArg, modelPathArg, configPathArg, codePathArg, startIndexArg, frameCountArg}
 	return args
+}
+
+func getJobName(token string) string {
+	return fmt.Sprintf("Ingest-%s", token)
 }

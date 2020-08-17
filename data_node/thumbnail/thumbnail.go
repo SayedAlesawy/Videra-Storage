@@ -3,12 +3,12 @@ package thumbnail
 import (
 	"fmt"
 	"log"
-	"os/exec"
 	"path"
 	"strings"
 
 	"github.com/SayedAlesawy/Videra-Storage/config"
 	datanode "github.com/SayedAlesawy/Videra-Storage/data_node"
+	jobscheduler "github.com/SayedAlesawy/Videra-Storage/data_node/jobs_scheduler"
 )
 
 var thumbnailLoggerPrefix = "[Thumbnail]"
@@ -20,33 +20,17 @@ func PrepareThumbnail(videoInfo datanode.File) {
 	datanode.CreateFileDirectory(thumbnailFolder, 0744)
 
 	outputFilePath := path.Join(thumbnailFolder, fmt.Sprintf("%s_thumbnail.jpg", videoInfo.Parent))
-	err := generateThumbnail(videoInfo.Path, outputFilePath)
-	if err != nil {
-		log.Println(thumbnailLoggerPrefix, err)
-		return
-	}
 
-	err = updateDB(outputFilePath, videoInfo)
-	if err != nil {
-		log.Println(thumbnailLoggerPrefix, err)
-		return
-	}
-	log.Println(thumbnailLoggerPrefix, "Stream file encoded at ", outputFilePath)
-}
-
-func generateThumbnail(inputFile string, outputFilename string) error {
 	command := "ffmpeg"
-	args := prepareArgs(inputFile, outputFilename)
-	cmd := exec.Command(command, args...)
+	args := prepareArgs(videoInfo.Path, outputFilePath)
+	name := getJobName(videoInfo.Parent)
+	tableName := datanode.NodeInstance().DB.Connection.NewScope(videoInfo).TableName()
+	columnName := "thumbnail_path"
+	post := jobscheduler.PostJob{ID: videoInfo.ID, TableName: tableName, ColumnName: columnName, NewValue: outputFilePath}
 
-	err := cmd.Start()
-	if err != nil {
-		return err
-	}
-
-	log.Println(thumbnailLoggerPrefix, "starting thumbnail generation at process", cmd.Process.Pid)
-	cmd.Wait()
-	return nil
+	jobScheduler := jobscheduler.JobQueueInstance()
+	jobScheduler.InsertJob(name, command, args, post)
+	log.Println(thumbnailLoggerPrefix, "Submitted thumbnail generation for file", videoInfo.Parent)
 }
 
 func prepareArgs(inputFile string, outputFilename string) []string {
@@ -59,7 +43,6 @@ func prepareArgs(inputFile string, outputFilename string) []string {
 	return strings.Split(args, " ")
 }
 
-func updateDB(thumbnailFilePath string, videoInfo datanode.File) error {
-	dn := datanode.NodeInstance()
-	return dn.DB.Connection.Model(&videoInfo).Update("ThumbnailPath", thumbnailFilePath).Error
+func getJobName(token string) string {
+	return fmt.Sprintf("Thumbnail-%s", token)
 }
